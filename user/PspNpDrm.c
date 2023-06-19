@@ -1,4 +1,6 @@
 #include "crypto/kirk_engine.h"
+#include "crypto/amctrl.h"
+#include "crypto/aes.h"
 
 #include "PspNpDrm.h"
 #include "Io.h"
@@ -11,13 +13,99 @@
 
 #include <vitasdk.h>
 
-static void printBuf(unsigned char* buffer, int sz){
+static void print_buf(unsigned char* buffer, int sz){
 	for(int i = 0; i < sz; i++){
 		sceClibPrintf("%02X ", buffer[i]);
 	}
 	sceClibPrintf("\n");
 }
 
+int sceNpDrmCalcPgdKey(NpPgd* pgd, char* versionkey) {
+	MAC_KEY mkey;
+	
+	int flag = 0x2;
+	int mac_type = 0;
+	int cipher_type = 0;
+	
+	
+	// determine cipher types
+	if (pgd->drm_type == 1)
+	{
+		mac_type = 1;
+		flag |= 4;
+
+		if(pgd->key_index > 1)
+		{
+			mac_type = 3;
+			flag |= 8;
+		}
+	}
+	else
+	{
+		mac_type = 2;
+	}
+
+	// calculate the key
+	int ret = 0;
+	
+	if(sceDrmBBMacInit(&mkey, mac_type) < SCE_OK) return 0;
+	if(sceDrmBBMacUpdate(&mkey, pgd, offsetof(NpPgd, pgd_ekey))  < SCE_OK) return 0;
+	if(bbmac_getkey(&mkey, pgd->pgd_ekey, versionkey) < SCE_OK) return 0;
+	
+	// turn key to keyindex 0
+	sceNpDrmTransformVersionKey(versionkey, pgd->key_index, 0);
+	return 1;
+}
+
+int sceNpDrmCalcEdatKey(NpPspEdat* edat, NpPgd* pgd, char* versionkey) {
+	MAC_KEY mkey;
+
+	char osx_key[0x10]; // ha? caz its a MAC.. :D
+	char pgd_key[0x10];
+	
+	memset(osx_key, 0x00, 0x10); 
+	memset(pgd_key, 0x00, 0x10);
+	
+	if ((edat->version & 1) == 1) {
+		if(sceDrmBBMacInit(&mkey, 3) < SCE_OK) return 0;
+		if(sceDrmBBMacUpdate(&mkey, edat, offsetof(NpPspEdat, header_hash)) < SCE_OK) return 0;
+		if(bbmac_getkey(&mkey, edat->header_hash, osx_key) < SCE_OK) return 0;
+	}
+	else if((edat->version & 2) == 2) { // version 2 just has key outright in the header 
+		memcpy(osx_key, edat->key, 0x10);
+	}
+	
+	// get key from pgd header
+	sceNpDrmCalcPgdKey(pgd, pgd_key);
+	
+	// get pgd key index
+	gen_versionkey(pgd_key, pgd->key_index);
+	
+	// reverse the aes decrypt step done within npdrm.prx
+	aes_encrypt(pgd_key, PSP_EDAT_AES);
+		
+	// reverse the xor step done within npdrm.prx
+	for(int i = 0; i < 0x10; i++)
+		versionkey[i] = pgd_key[i] ^ osx_key[i];
+	
+	// turn key to keyindex 0
+	reverse_gen_versionkey(versionkey, edat->key_index, 0);
+	
+	return 1;
+}
+
+int sceNpDrmCalcNpUmdKey(NpUmdHdr* hdr, char* versionkey) {
+	MAC_KEY mkey;
+	
+	// calcluate the key
+	if(sceDrmBBMacInit(&mkey, 3) < SCE_OK) return 0;
+	if(sceDrmBBMacUpdate(&mkey, (uint8_t*)hdr, offsetof(NpUmdHdr, header_hash)) < SCE_OK) return 0;
+	if(bbmac_getkey(&mkey, hdr->header_hash, versionkey) < SCE_OK) return 0;
+
+	// turn key to keyindex 0
+	sceNpDrmTransformVersionKey(versionkey, hdr->key_index, 0);
+	return 1;
+}
 
 int reverse_gen_versionkey(char* versionkey, int keyindex)
 {
@@ -164,13 +252,13 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	memset(versionkey, 0xFF, 0x10);
 	
 	// get version key
-	if(!search_games(contentId, versionkey)) {
+	if(!search_games("ms0:/PSP/GAME", contentId, versionkey)) {
 		sceClibPrintf("[VKEY] Unable to find versionkey!!!\n");
 		return;
 	}
 	
 	sceClibPrintf("[VKEY] versionkey: ");
-	printBuf(versionkey, 0x10);
+	print_buf(versionkey, 0x10);
 	
 	// determine a random key from act.dat to use.
 	int keyId = (int)(random_uint() % 0x80);

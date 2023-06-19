@@ -2,10 +2,6 @@
 #include "Pbp.h"
 #include "PspNpDrm.h"
 
-#include "crypto/kirk_engine.h"
-#include "crypto/amctrl.h"
-#include "crypto/aes.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -21,10 +17,13 @@
 void get_extension(char* filename, char* ext){
 	memset(ext, 0x00, 0x10);
 	int cpy = 0;
-	for(cpy = 0; ; cpy++){
-		if(filename[cpy] == '.') break;
-		if(filename[cpy] == '\0') break;
+	
+	for(int i = 0; ; i++){
+		if(filename[i] == '.') cpy = i;
+		if(filename[i] == '\0') break;
 	}
+	
+	if(cpy == 0) return;
 	
 	strncpy(ext, filename+cpy, 0x9);
 	
@@ -32,69 +31,6 @@ void get_extension(char* filename, char* ext){
 		ext[i] = toupper(ext[i]);
 }
 
-int calc_pgd_key(NpPgd* pgd, char* versionkey){
-	MAC_KEY mkey;
-	
-	int flag = 0x2;
-	int mac_type = 0;
-	int cipher_type = 0;
-	
-	
-	// determine cipher types
-	if (pgd->drm_type == 1)
-	{
-		mac_type = 1;
-		flag |= 4;
-
-		if(pgd->key_index > 1)
-		{
-			mac_type = 3;
-			flag |= 8;
-		}
-	}
-	else
-	{
-		mac_type = 2;
-	}
-	
-	
-	// get dnas key
-	const char* fkey = NULL;	
-	if((flag & 0x2) == 0x2)
-		fkey = DNAS_KEY1A90;
-	
-	if((flag & 0x1) == 0x1)
-		fkey = DNAS_KEY1AA0;
-	
-	if(fkey == NULL)
-		return 0;
-
-	// calculate the key
-	int ret = 0;
-	
-	if(sceDrmBBMacInit(&mkey, mac_type) < SCE_OK) return 0;
-	if(sceDrmBBMacUpdate(&mkey, (uint8_t*)pgd, offsetof(NpPgd, pgd_ekey))  < SCE_OK) return 0;
-	if(bbmac_getkey(&mkey, pgd->pgd_ekey, versionkey) < SCE_OK) return 0;
-	
-	// turn key to keyindex 0
-	sceNpDrmTransformVersionKey(versionkey, pgd->key_index, 0);
-	
-	return 1;
-}
-
-
-int calc_npumd_key(NpUmdHdr* hdr, char* versionkey){
-	MAC_KEY mkey;
-	
-	// calcluate the key
-	if(sceDrmBBMacInit(&mkey, 3) < SCE_OK) return 0;
-	if(sceDrmBBMacUpdate(&mkey, (uint8_t*)hdr, offsetof(NpUmdHdr, header_hash)) < SCE_OK) return 0;
-	if(bbmac_getkey(&mkey, hdr->header_hash, versionkey) < SCE_OK) return 0;
-
-	// turn key to keyindex 0
-	sceNpDrmTransformVersionKey(versionkey, hdr->key_index, 0);
-	return 1;
-}
 
 int read_edat_key(char* file, char* contentId, char* key){
 	NpPspEdat pspEdat;
@@ -108,22 +44,30 @@ int read_edat_key(char* file, char* contentId, char* key){
 	
 	// read the edat header
 	SceUID fd = sceIoOpen(file, SCE_O_RDONLY, 0777);
-	sceIoRead(fd, &pspEdat, sizeof(pspEdat));
+	if(fd < 0) return 0;
 	
-	// check magic is PSPEDAT magic
-	if(memcmp(pspEdat.magic, "\0PSPEDAT", sizeof(pspEdat.magic)) == 0){
-		// check the content id is the one were searching for.
-		if(strcmp(pspEdat.content_id, contentId) == 0){
-			sceClibPrintf("[EDAT] using edat: %s\n", file);
-			sceClibPrintf("[EDAT] content_id %s\n", pspEdat.content_id);
+	int read_sz = sceIoRead(fd, &pspEdat, sizeof(NpPspEdat));
+	if(read_sz >= sizeof(NpPspEdat)) {
+		// check magic is PSPEDAT magic
+		if(memcmp(pspEdat.magic, "\0PSPEDAT", 0x8) == 0){
+			// check the content id is the one were searching for.
+			if(strcmp(pspEdat.content_id, contentId) == 0){
+				NpPgd edatPgd;
 
-			// calculate the pgd key
-			ret = calc_pgd_key(&pspEdat.pgd, key);
-			
-			sceClibPrintf("[EDAT] ret = 0x%x\n", ret);
-		}		
+				// read PGD from edat
+				sceIoLseek(fd, pspEdat.data_offset, SCE_SEEK_SET);
+				read_sz = sceIoRead(fd, &edatPgd, sizeof(NpPgd));
+				
+				if(read_sz >= sizeof(NpPgd) && memcmp(edatPgd.magic, "\0PGD", 0x4) == 0) {
+					sceClibPrintf("[VKEY] FOUND (PSP) EDAT: %s\n", file);
+					
+					// calculate the edat key
+					ret = sceNpDrmCalcEdatKey(&pspEdat, &edatPgd, key);
+				}				
+			}
+		}
 	}
-	
+
 	sceIoClose(fd);
 	return ret;
 }
@@ -166,10 +110,9 @@ int read_pbp_key(char* file, char* contentId, char* key){
 					if(readSz == sizeof(NpUmdHdr)) {
 						// check the content id matches the one were searching for.
 						if(strcmp(contentId, npUmdHdr.content_id) == 0){
+							sceClibPrintf("[VKEY] FOUND (PSP) EBOOT: %s\n", file);
 							// extract key
-							sceClibPrintf("[PBP] using pbp: %s\n", file);
-							sceClibPrintf("[PBP] content_id %s\n", npUmdHdr.content_id);
-							ret = calc_npumd_key(&npUmdHdr, key);
+							ret = sceNpDrmCalcNpUmdKey(&npUmdHdr, key);
 						}
 					}
 				}
@@ -183,10 +126,11 @@ int read_pbp_key(char* file, char* contentId, char* key){
 					// check read size is npdatapsp size
 					if(readSz == sizeof(NpDataPsp)) { 
 						// check the content id matches the one were searching for.
-						if(strcmp(npDataPsp.content_id, contentId) == 0){
+						if(strcmp(npDataPsp.content_id, contentId) == 0){							
 							NpPgd npPgd;
 							
-							// locate iso header PGD location 
+							// locate disc info PGD 
+							
 							// in PSISOIMG its 0x400 bytes from the start
 							if(strcmp("PSISOIMG", head) == 0)
 								sceIoLseek(fd, pbpHdr.data_psar+0x400, SCE_SEEK_SET);
@@ -198,8 +142,13 @@ int read_pbp_key(char* file, char* contentId, char* key){
 							// read the PGD
 							sceIoRead(fd, &npPgd, sizeof(NpPgd));
 							
-							// extract the key
-							ret = calc_pgd_key(&npPgd, key);
+							// check magic is "PGD"
+							if(memcmp(npPgd.magic, "\0PGD", 0x4) == 0) {
+								sceClibPrintf("[VKEY] FOUND (PS1) EBOOT: %s\n", file);
+								
+								// extract the key
+								ret = sceNpDrmCalcPgdKey(&npPgd, key);
+							}
 						}
 					}
 				}
@@ -214,73 +163,53 @@ int read_pbp_key(char* file, char* contentId, char* key){
 int check_file(char* file, char* contentId, char* key){
 	char extension[0x10];
 	get_extension(file, extension);
-	
+
 	if(strcmp(extension, ".PBP") == 0){
 		return read_pbp_key(file, contentId, key);
 	}
 	else if(strcmp(extension, ".EDAT") == 0){
 		return read_edat_key(file, contentId, key);
 	}
+
 	return 0;
 	
 }
 
-int search_files(char* path, char* contentId, char* key){
-	SceUID dfd = sceIoDopen(path);	
-	char* pbpFile = malloc(MAX_PATH);
-	memset(pbpFile, 0x00, MAX_PATH);
+int search_games(char* dir_path, char* contentId, char* key){
+	//const char* pspGameFolder = "ms0:/PSP/GAME";
+	SceUID dfd = sceIoDopen(dir_path);	
+	char* subEnt = malloc(MAX_PATH);
+	memset(subEnt, 0x00, MAX_PATH);
 	
-	int ret = 0;
-
+	int dir_read_ret = 0;
 	SceIoDirent* dir = malloc(sizeof(SceIoDirent));
-	
-	do{
-		memset(dir, 0x00, sizeof(SceIoDirent));		
-		ret = sceIoDread(dfd, dir);
-		
-		if(!SCE_S_ISDIR(dir->d_stat.st_mode)) {
-			snprintf(pbpFile, MAX_PATH, "%s/%s", path, dir->d_name);
-			if(check_file(pbpFile, contentId, key))
-				return 1;
-		}
-		
-		
-	} while(ret > 0);
-	
-	free(dir);
-	sceIoDclose(dfd);		
-	
-	free(pbpFile);
-	
-	return 0;
-}
-
-int search_games(char* contentId, char* key){
-	const char* pspGameFolder = "ms0:/PSP/GAME";
-	SceUID dfd = sceIoDopen(pspGameFolder);	
-	char* gameFolder = malloc(MAX_PATH);
-	memset(gameFolder, 0x00, MAX_PATH);
-	
 	int ret = 0;
-	SceIoDirent* dir = malloc(sizeof(SceIoDirent));
-
 	do{
 		memset(dir, 0x00, sizeof(SceIoDirent));
 		
-		ret = sceIoDread(dfd, dir);
+		dir_read_ret = sceIoDread(dfd, dir);
+		
+		snprintf(subEnt, MAX_PATH, "%s/%s", dir_path, dir->d_name);
+		
 		
 		if(SCE_S_ISDIR(dir->d_stat.st_mode)) {
-			snprintf(gameFolder, MAX_PATH, "%s/%s", pspGameFolder, dir->d_name);
-			if(search_files(gameFolder, contentId, key))
-				return 1;
+			if(search_games(subEnt, contentId, key)) {
+				ret = 1; break;
+			}
+		}
+		else{
+			if(check_file(subEnt, contentId, key)) {
+				ret = 1; break;
+			}
 		}
 		
 		
-	} while(ret > 0);
+	} while(dir_read_ret > 0);
+	
 	
 	free(dir);
-	sceIoDclose(dfd);		
+	sceIoDclose(dfd);
 	
-	free(gameFolder);
-	return 0;
+	free(subEnt);
+	return ret;
 }

@@ -32,6 +32,8 @@
 #include "PspEmu.h"
 #include "PspNpDrm.h"
 
+#define IS_RIF_PATH(x) (strncmp(x, "ms0:PSP/LICENSE/", 16) == 0 || strncmp(x, "ms0:/PSP/LICENSE/", 17) == 0)
+
 int (* ScePspemuConvertAddress)(uint32_t addr, int mode, uint32_t cache_size);
 int (* ScePspemuWritebackCache)(void *addr, int size);
 
@@ -121,9 +123,10 @@ void handle_rif(const char** file){
 	char contentId[0x100];
 	memset(contentId, 0x00, sizeof(contentId));
 	
-	strncpy(contentId, *file + 16, 36);
+	int cnt = strlen(*file);
+	strncpy(contentId, *file + (cnt - 40), 36);
 	
-	sceClibPrintf("[RIFCHECK] CONTENTID FOUND: %s\n", contentId);
+	sceClibPrintf("[RIFCHECK] Searching for drm file of %s\n", contentId);
 	
 	patch_npdrm_prx();	
 	
@@ -155,7 +158,7 @@ void handle_rif(const char** file){
 static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 	int ret = TAI_CONTINUE(SceUID, sceIoGetstatRef, file, stat);	
 	
-	if( file != NULL && ret < 0 && strncmp(file, "ms0:/PSP/LICENSE/", 17) == 0) {
+	if( file != NULL && ret < 0 && IS_RIF_PATH(file)) {
 		// fake it existing
 		sceClibPrintf("[STAT] faking sceIoGetstat success to: %s\n", file);
 		memset(stat, 0x00, sizeof(SceIoStat));
@@ -170,7 +173,7 @@ static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 
 static SceUID sceIoOpenPatched(const char *file, int flags, SceMode mode) {
 	
-	if(file != NULL && strncmp(file, "ms0:PSP/LICENSE/", 16) == 0){
+	if(file != NULL && IS_RIF_PATH(file)){
 		handle_rif(&file);
 	}
 	
