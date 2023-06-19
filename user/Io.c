@@ -1,6 +1,6 @@
 #include <vitasdk.h>
 
-int WriteFile(char *file, void *buf, int size) {
+int WriteFile(const char *file, void *buf, int size) {
 	SceUID fd = sceIoOpen(file, SCE_O_WRONLY | SCE_O_CREAT , 0777);
 	if (fd < 0)
 		return fd;
@@ -11,7 +11,7 @@ int WriteFile(char *file, void *buf, int size) {
 	return written;
 }
 
-int ReadFile(char *file, void *buf, int size) {
+int ReadFile(const char *file, void *buf, int size) {
 	SceUID fd = sceIoOpen(file,SCE_O_RDONLY, 0777);
 	if (fd < 0)
 		return fd;
