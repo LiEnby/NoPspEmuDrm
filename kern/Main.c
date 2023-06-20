@@ -94,22 +94,22 @@ static int ksceNpDrmGetRifInfoPatched(PspRif *psprif, int license_size, int mode
 
 	int ret = TAI_CONTINUE(int, ksceNpDrmGetRifInfoRef, psprif, license_size, mode, content_id, aid, license_version, license_flags, flags, sku_flag, start_time, expiration_time, flags2);
 
-	// Bypass expiration time for PS Plus games
-	if (start_time)
-		*start_time = 0LL;
-	if (expiration_time)
-		*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
-	
-	
 	if (ret < 0 &&
 		psprif != NULL &&       // check if is null
-		psprif->version != -1)  // check is a psp rif
-		{
+		psprif->version != -1 && // check is  not vita rif
+		!is_offical_rif(psprif)) { // check is not offical rif
+		
+		// Bypass expiration time for PS Plus games
+		if (start_time)
+			*start_time = 0LL;
+		
+		if (expiration_time)
+			*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
+		
 		// bypass account check
 		if (aid)
 		  *aid = 0LL;
 		
-		// copy content id from rif buffer
 		if (content_id) // copy content id from rif 
 		  memcpy(content_id, psprif->contentId, 0x30);
 		
@@ -137,18 +137,19 @@ static int ksceNpDrmGetRifInfoPatched(PspRif *psprif, int license_size, int mode
 
 static int fakeRifData(PspRif *psprif, uint8_t *klicensee, uint32_t *flags, uint64_t *start_time, uint64_t *expiration_time)
 {
-	// Bypass expiration time for PS Plus games
-	if (start_time)
-		*start_time = 0LL;
-	
-	if (expiration_time)
-		*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
 	
 	// check is nopspemudrm rif
 	if (psprif != NULL &&            // check if is null
 		psprif->version != -1 &&     // check if is psp rif
-		!is_offical_rif(psprif)) {   /// check is not offical rif, or pocketstation
-				
+		!is_offical_rif(psprif)) {   /// check is not offical rif
+		
+		// Bypass expiration time for PS Plus games
+		if (start_time)
+			*start_time = 0LL;
+		
+		if (expiration_time)
+			*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
+	
 		// vita side never really cares about psp rif keys, so lets just set it to all be 0xFF
 		if (klicensee != NULL){
 			memset(klicensee, 0xFF, 0x10);
