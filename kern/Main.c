@@ -43,6 +43,7 @@ static tai_hook_ref_t ksceNpDrmPspEbootVerifyRef;
 // SceCompat
 static tai_hook_ref_t ksceNpDrmReadActDataRef;
 static tai_hook_ref_t ksceSblAimgrIsDEXRef;
+static tai_hook_ref_t sceCompatCheckPocketStationRef;
 
 // internal functions
 static tai_hook_ref_t npdrm_rif_verify_ecdsa_and_rsa_ref;
@@ -64,6 +65,7 @@ static SceUID ksceNpDrmPspEbootVerifyHook;
 // SceCompat
 static SceUID ksceNpDrmReadActDataHook;
 static SceUID ksceSblAimgrIsDEXHook;
+static SceUID sceCompatCheckPocketStationHook;
 
 // internal functions
 static SceUID npdrm_rif_verify_ecdsa_and_rsa_hook; 
@@ -98,13 +100,13 @@ static int ksceNpDrmGetRifInfoPatched(PspRif *psprif, int license_size, int mode
 	if (expiration_time)
 		*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
 	
-	// bypass account
 	
 	if (ret < 0 &&
-		psprif != NULL &&       // check if is null
+		( (psprif != NULL &&       // check if is null
 		psprif->version != -1)  // check is a psp rif
+		|| strcmp(psprif->contentId, "JA0003-PCSC80018_00-POCKETSTATION001") == 0) )  // check is pocketstation
 		{
-		// bypass account
+		// bypass account check
 		if (aid)
 		  *aid = 0LL;
 
@@ -143,9 +145,9 @@ static int fakeRifData(PspRif *psprif, uint8_t *klicensee, uint32_t *flags, uint
 		*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
 	
 	// check is nopspemudrm rif
-	if (psprif != NULL &&            // check if is null
-		psprif->version != -1 &&     // check if is psp rif
-		!is_offical_rif(psprif)) {   // check is NoPspEmuDrm rif, and not an offical rif
+	if (( psprif != NULL &&            // check if is null
+		psprif->version != -1 &&       // check if is psp rif
+		( !is_offical_rif(psprif) || strcmp(psprif->contentId, "JA0003-PCSC80018_00-POCKETSTATION001") == 0 ))) {   /// check is not offical rif, or pocketstation
 				
 		// vita side never really cares about psp rif keys, so lets just set it to all be 0xFF
 		if (klicensee != NULL){
@@ -182,6 +184,8 @@ static int ksceNpDrmGetRifPspKeyPatched(PspRif *psprif, uint8_t *klicensee, uint
 	}
 	return ret;
 }
+
+
 static int ksceNpDrmReadActDataPatched(PspAct* activationData) {
 	int ret = TAI_CONTINUE(int, ksceNpDrmReadActDataRef, activationData);
 	
@@ -206,6 +210,18 @@ static int ksceNpDrmReadActDataPatched(PspAct* activationData) {
 	return ret;
 }
 
+static int sceCompatCheckPocketStationPatched() {
+	int res = TAI_CONTINUE(int, sceCompatCheckPocketStationRef);
+	if(res < 0) {
+		SceIoStat stat;
+		int pocketstation_installed = ksceIoGetstat("ux0:/ps1emu/PCSC80018/texture.enc", &stat);
+		if(pocketstation_installed >= 0)
+			return 0;
+	}
+	
+	return res;
+}
+
 void _start() __attribute__ ((weak, alias("module_start")));
 int module_start(SceSize args, void *argp) {	
 	tai_module_info_t tai_info;
@@ -228,6 +244,7 @@ int module_start(SceSize args, void *argp) {
 	// allow SceCompat to start without a rif or activation
 	ksceNpDrmReadActDataHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceNpDrmReadActDataRef, "SceCompat", 0xD84DC44A, 0xD91C3BCE, ksceNpDrmReadActDataPatched); // ksceNpDrmReadActData
 	ksceSblAimgrIsDEXHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceSblAimgrIsDEXRef, "SceCompat", 0xFD00C69A, 0xF4B98F66, return_1); // ksceSblAimgrIsDEX
+	sceCompatCheckPocketStationHook = taiHookFunctionExportForKernel(KERNEL_PID, &sceCompatCheckPocketStationRef, "SceCompat", 0xD84DC44A, 0x96FC2A87, sceCompatCheckPocketStationPatched); // sceCompatCheckPocketStation
 
 	// Patch rif and act.dat signature checks, so the vita thinks our licenses are *LEGIT*
 	npdrm_rif_verify_ecdsa_and_rsa_hook = taiHookFunctionOffsetForKernel(KERNEL_PID, &npdrm_rif_verify_ecdsa_and_rsa_ref, tai_info.modid, 0, 0xA8D8, 1, return_0); // rif_verify_ecdsa_and_rsa
@@ -245,6 +262,7 @@ int module_stop(SceSize args, void *argp) {
 	
 	if (ksceSblAimgrIsDEXHook >= 0) taiHookReleaseForKernel(ksceSblAimgrIsDEXHook, ksceSblAimgrIsDEXRef);
 	if (ksceNpDrmReadActDataHook >= 0) taiHookReleaseForKernel(ksceNpDrmReadActDataHook, ksceNpDrmReadActDataRef);
+	if (sceCompatCheckPocketStationHook >= 0) taiHookReleaseForKernel(sceCompatCheckPocketStationHook, sceCompatCheckPocketStationRef);
 	
 	if (npdrm_rif_verify_ecdsa_and_rsa_hook >= 0) taiHookReleaseForKernel(npdrm_rif_verify_ecdsa_and_rsa_hook, npdrm_rif_verify_ecdsa_and_rsa_ref);
 	if (npdrm_act_verify_ecdsa_and_rsa_hook >= 0) taiHookReleaseForKernel(npdrm_act_verify_ecdsa_and_rsa_hook, npdrm_act_verify_ecdsa_and_rsa_ref);
