@@ -102,18 +102,18 @@ static int ksceNpDrmGetRifInfoPatched(PspRif *psprif, int license_size, int mode
 	
 	
 	if (ret < 0 &&
-		( (psprif != NULL &&       // check if is null
+		psprif != NULL &&       // check if is null
 		psprif->version != -1)  // check is a psp rif
-		|| strcmp(psprif->contentId, "JA0003-PCSC80018_00-POCKETSTATION001") == 0) )  // check is pocketstation
 		{
 		// bypass account check
 		if (aid)
 		  *aid = 0LL;
-
+		
 		// copy content id from rif buffer
 		if (content_id) // copy content id from rif 
 		  memcpy(content_id, psprif->contentId, 0x30);
-
+		
+		
 		if (flags) {
 		  if (__builtin_bswap16(psprif->licenseType) & 0x200)
 			(*flags) |= 0x1;
@@ -145,9 +145,9 @@ static int fakeRifData(PspRif *psprif, uint8_t *klicensee, uint32_t *flags, uint
 		*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
 	
 	// check is nopspemudrm rif
-	if (( psprif != NULL &&            // check if is null
-		psprif->version != -1 &&       // check if is psp rif
-		( !is_offical_rif(psprif) || strcmp(psprif->contentId, "JA0003-PCSC80018_00-POCKETSTATION001") == 0 ))) {   /// check is not offical rif, or pocketstation
+	if (psprif != NULL &&            // check if is null
+		psprif->version != -1 &&     // check if is psp rif
+		!is_offical_rif(psprif)) {   /// check is not offical rif, or pocketstation
 				
 		// vita side never really cares about psp rif keys, so lets just set it to all be 0xFF
 		if (klicensee != NULL){
@@ -215,8 +215,9 @@ static int sceCompatCheckPocketStationPatched() {
 	if(res < 0) {
 		SceIoStat stat;
 		int pocketstation_installed = ksceIoGetstat("ux0:/ps1emu/PCSC80018/texture.enc", &stat);
-		if(pocketstation_installed >= 0)
+		if(pocketstation_installed >= 0) {
 			return 0;
+		}
 	}
 	
 	return res;
@@ -244,7 +245,7 @@ int module_start(SceSize args, void *argp) {
 	// allow SceCompat to start without a rif or activation
 	ksceNpDrmReadActDataHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceNpDrmReadActDataRef, "SceCompat", 0xD84DC44A, 0xD91C3BCE, ksceNpDrmReadActDataPatched); // ksceNpDrmReadActData
 	ksceSblAimgrIsDEXHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceSblAimgrIsDEXRef, "SceCompat", 0xFD00C69A, 0xF4B98F66, return_1); // ksceSblAimgrIsDEX
-	sceCompatCheckPocketStationHook = taiHookFunctionExportForKernel(KERNEL_PID, &sceCompatCheckPocketStationRef, "SceCompat", 0xD84DC44A, 0x96FC2A87, sceCompatCheckPocketStationPatched); // sceCompatCheckPocketStation
+	sceCompatCheckPocketStationHook = taiHookFunctionExportForKernel(KERNEL_PID, &sceCompatCheckPocketStationRef, "SceCompat", 0x0F35909D, 0x96FC2A87, sceCompatCheckPocketStationPatched); // sceCompatCheckPocketStation
 
 	// Patch rif and act.dat signature checks, so the vita thinks our licenses are *LEGIT*
 	npdrm_rif_verify_ecdsa_and_rsa_hook = taiHookFunctionOffsetForKernel(KERNEL_PID, &npdrm_rif_verify_ecdsa_and_rsa_ref, tai_info.modid, 0, 0xA8D8, 1, return_0); // rif_verify_ecdsa_and_rsa
