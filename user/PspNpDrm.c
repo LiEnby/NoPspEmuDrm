@@ -13,6 +13,32 @@
 
 #include <vitasdk.h>
 
+int _sceNpDrmCheckActData(int *act_type, int *version_flag, uint64_t *account_id, uint64_t expire_date[2]);
+
+int is_offical_rif(PspRif* rif){
+	for(int i = 0; i < 0x28; i++) {
+		if(rif->ecdsaSig[i] != 0xff) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int is_npdrm_activated() {
+	int act_type;
+	int version_flag;
+	uint64_t account_id;
+	uint64_t expire_date[2];
+	memset(expire_date, 0x00, sizeof(expire_date));
+	
+	int ret = _sceNpDrmCheckActData(&act_type, &version_flag, &account_id, expire_date);
+
+	if(ret >= 0)
+		return 1;
+	else
+		return 0;
+}
+
 static void print_buf(unsigned char* buffer, int sz){
 	for(int i = 0; i < sz; i++){
 		sceClibPrintf("%02X ", buffer[i]);
@@ -50,7 +76,7 @@ int gen_versionkey(char* versionkey, int keyindex)
 	return ret;
 }
 
-void get_act_key(char* key_out, char* key_table, int count){
+void get_act_key(char* key_out, char* encrypted_act_key, int count){
 	char decKey[0x10];
 	char idps[32];
 	
@@ -61,16 +87,30 @@ void get_act_key(char* key_out, char* key_table, int count){
 	
 	
 	for (int i = 0; i < count; i++){
-		aes_decrypt_out(key_out, &key_table[i * 0x10], decKey);
+		aes_decrypt_out(key_out, encrypted_act_key, decKey);
 	}
 	
+}
+
+int get_activation_data(PspAct* act) {
+	// read act.dat
+	
+	if(is_npdrm_activated()) {
+		sceClibPrintf("[RIFGEN] Reading act.dat\n");
+		ReadFile("tm0:/npdrm/act.dat", act, sizeof(PspAct));
+	}
+	else {
+		sceClibPrintf("[RIFGEN] Your console is missing NpDrm activation. Faking it..\n");
+		memcpy(act, FakeActBuffer, sizeof(PspAct));
+	}
+	
+	return 0;
 }
 
 void gen_enc_key1(char* encKey1_out, int keyId){
 	char encKey1[0x10];
 	sceUtilsBufferCopyWithRange(encKey1, 0x10, NULL, 0, KIRK_CMD_PRNG);
 	*(uint32_t*)(encKey1+0xC) = __builtin_bswap32(keyId);
-	
 	
 	aes_encrypt(encKey1, PSP_RIF_AES);
 
@@ -82,12 +122,11 @@ void gen_enc_key2(char* encKey2_out, char* versionKey, int keyId){
 
 	PspAct* act = malloc(sizeof(PspAct));
 	memset(act, 0x00, sizeof(PspAct));
-
-	// read act.dat
-	ReadFile("tm0:/npdrm/act.dat", act, sizeof(PspAct));
+	
+	get_activation_data(act);
 	
 	char actKey[0x10];
-	get_act_key(actKey, &act->primKeyTable[keyId*0x10], 1);
+	get_act_key(actKey, act->primKeyTable[keyId], 1);
 	
 	char encKey2[0x10];
 	aes_encrypt_out(encKey2, versionKey, actKey);
@@ -98,33 +137,40 @@ void gen_enc_key2(char* encKey2_out, char* versionKey, int keyId){
 
 }
 
-int is_offical_rif(PspRif* rif){
-	for(int i = 0; i < 0x28; i++) {
-		if(rif->ecdsaSig[i] != 0xff) {
-			return 1;
-		}
-	}
-	return 0;
-}
 
 int get_rif_state(PspRif* rif, char* expectedContentId){
-	
+	// is this an offical rif?
 	int officalRif = is_offical_rif(rif);
-	int invalidState = officalRif ? OFFICAL_INVALID : NOPSPEMUDRM_INVALID;
 	
+	// is the console activated?
+	int isActivated = is_npdrm_activated();
+	
+	// if its an offical rif, set OFFICAL_INVALID, so we dont overwrite it when generating fake rif.
+	int invalidState = officalRif ? OFFICAL_INVALID : NOPSPEMUDRM_INVALID;
+
 	sceClibPrintf("[RIFCHECK] is offical rif? %x\n",  officalRif);
+	sceClibPrintf("[RIFCHECK] is npdrm activated? %x\n",  isActivated);
 	
 	// get the current account
 	uint64_t accountId = -1;
 	sceRegMgrGetKeyBin("/CONFIG/NP", "account_id", &accountId, sizeof(uint64_t));
 	
-	// check the rif is for this account
+	// get current secure tick
+	SceRtcTick rtcTick;
+	memset(&rtcTick, 0x00, sizeof(SceRtcTick));
+	sceCompatGetCurrentSecureTick(&rtcTick);
+	
+	// check the console is activated
+	if(officalRif && !isActivated) {
+		sceClibPrintf("[RIFCHECK] offical rif, but console is not activated.\n");
+		return invalidState;
+	}
+	
+	// check the rif is for this accoun
 	if(rif->accountId != accountId) { 
 		sceClibPrintf("[RIFCHECK] account Id do not match\n");
 		return invalidState;
 	}
-
-	sceClibPrintf("[RIFCHECK] account Id match\n");
 
 	// check the rif contentid matches
 	if(strcmp(expectedContentId, rif->contentId) != 0) {
@@ -132,11 +178,30 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 		return invalidState;
 	}
 	
-	// check encKey2 is set
-	for(int i = 0; i < 0x10; i++)
-		if(rif->encKey2[i] != 0x00) return VALID_RIF;
+	// check versionFlag is 1 && that you are npdrm activated
+	if(!officalRif && rif->versionFlag == __builtin_bswap16(1) && !isActivated) {
+		sceClibPrintf("[RIFCHECK] cached rif is for activated console\n");
+		return invalidState;
+	}
+	
+	// check rif start time
+	if(rif->startTime != 0 && rtcTick.tick < rif->startTime) {
+		sceClibPrintf("[RIFCHECK] rif start date not yet reached\n");
+		return invalidState;
+	}
 
-	sceClibPrintf("encKey2 is all 0\n");
+	// check rif end time
+	if(rif->endTime != 0 && rtcTick.tick > rif->endTime) {
+		sceClibPrintf("[RIFCHECK] rif is expired\n");
+		return invalidState;
+	}
+
+	// check encKey2 is set
+	for(int i = 0; i < 0x10; i++) {
+		if(rif->encKey2[i] != 0x00) return VALID_RIF;
+	}
+	
+	sceClibPrintf("[RIFCHECK] encKey2 is all 0\n");
 	return invalidState;
 }
 
@@ -149,21 +214,17 @@ int sceNpDrmCalcPgdKey(NpPgd* pgd, char* versionkey) {
 	int mac_type = 0;
 	int cipher_type = 0;
 	
-	
 	// determine cipher types
-	if (pgd->drm_type == 1)
-	{
+	if (pgd->drm_type == 1) {
 		mac_type = 1;
 		flag |= 4;
 
-		if(pgd->key_index > 1)
-		{
+		if(pgd->key_index > 1) {
 			mac_type = 3;
 			flag |= 8;
 		}
 	}
-	else
-	{
+	else {
 		mac_type = 2;
 	}
 
@@ -244,6 +305,7 @@ PspRifState sceNpDrmCheckRifState(char* contentId, const char* path) {
 	return ret;
 }
 
+
 void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	PspRif* rif = malloc(sizeof(PspRif));
 	memset(rif, 0x00, sizeof(PspRif));
@@ -271,7 +333,12 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	rif->version = __builtin_bswap16(1);
 	
 	// set version flag
-	rif->versionFlag = __builtin_bswap16(1);;	
+	// im using this to store if the rif was generated with fake activation or real activation
+	// this way if a user without activation, suddenly activates we can detect that and regenerate all their rifs
+	// 
+	// the psp firmware never does anything with this besides checking its not 0x30000 or something like that anyway-
+
+	rif->versionFlag = is_npdrm_activated() ? __builtin_bswap16(1) :  __builtin_bswap16(0);
 	
 	// set license flag
 	rif->licenseType = 0;

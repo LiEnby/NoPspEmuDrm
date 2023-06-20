@@ -1,3 +1,8 @@
+// NoPspEmuDrm 
+// Created by Li, based on NoNpDrm kernel plugin
+
+// below is the copyright notice for the original NoNpDrm :
+
 /*
   NoNpDrm Plugin
   Copyright (C) 2017-2018, TheFloW
@@ -22,38 +27,47 @@
 // pull in my rif struct from user plugin 
 #include "../user/PspNpDrm.h"
 
+/*
+*	Hook References
+*/
 
+// SceNpDrm Patches
 static tai_hook_ref_t ksceNpDrmGetRifInfoRef;
 static tai_hook_ref_t ksceNpDrmGetRifVitaKeyRef;
 static tai_hook_ref_t ksceNpDrmGetRifPspKeyRef;
+static tai_hook_ref_t ksceNpDrmReadActDataRef;
 
+// __sce_ebootpbp patch
 static tai_hook_ref_t ksceNpDrmEbootSigVerifyRef;
 static tai_hook_ref_t ksceNpDrmPspEbootVerifyRef;
 
-static tai_hook_ref_t ksceNpDrmReadActDataRef;
+// SceCompat
+static tai_hook_ref_t ksceSblAimgrIsDEXRef;
 
+// internal functions
 static tai_hook_ref_t npdrm_rif_verify_ecdsa_and_rsa_ref;
+static tai_hook_ref_t npdrm_act_verify_ecdsa_and_rsa_ref;
+
+/*
+*	Hook variables
+*/
 
 // SceNpDrm patches
 static SceUID ksceNpDrmGetRifInfoHook;
 static SceUID ksceNpDrmGetRifVitaKeyHook;
 static SceUID ksceNpDrmGetRifPspKeyHook;
+static SceUID ksceNpDrmReadActDataHook;
 
 // __sce_ebootpbp patch
 static SceUID ksceNpDrmEbootSigVerifyHook;
 static SceUID ksceNpDrmPspEbootVerifyHook;
 
-// activation patch
-static SceUID ksceNpDrmReadActDataHook;
-
-// rif signature patch
-static SceUID npdrm_rif_verify_ecdsa_and_rsa_hook; 
-
 // SceCompat
-static tai_hook_ref_t ksceSblAimgrIsDEXRef;
-
-
 static SceUID ksceSblAimgrIsDEXHook;
+
+// internal functions
+static SceUID npdrm_rif_verify_ecdsa_and_rsa_hook; 
+static SceUID npdrm_act_verify_ecdsa_and_rsa_hook; 
 
 
 int is_offical_rif(PspRif* rif){
@@ -64,6 +78,15 @@ int is_offical_rif(PspRif* rif){
 	}
 	return 0;
 }
+
+static int return_0() {
+	return 0;
+}
+
+static int return_1() {
+	return 1;
+}
+
 
 static int ksceNpDrmGetRifInfoPatched(PspRif *psprif, int license_size, int mode, char *content_id, uint64_t *aid, uint16_t *license_version, uint8_t *license_flags, uint32_t *flags, uint32_t *sku_flag, uint64_t *start_time, uint64_t *expiration_time, uint64_t *flags2) {
 
@@ -78,7 +101,7 @@ static int ksceNpDrmGetRifInfoPatched(PspRif *psprif, int license_size, int mode
 	// check is nopspemudrm rif
 	if (ret < 0 &&
 		psprif != NULL && // check if is null
-		psprif->version != 0xFFFF)  // check is a psp rif
+		psprif->version != -1)  // check is a psp rif
 		{
 			
 		if (content_id) // copy content id from rif 
@@ -118,9 +141,9 @@ static int fakeRifData(PspRif *psprif, uint8_t *klicensee, uint32_t *flags, uint
 		*expiration_time = 0x7FFFFFFFFFFFFFFFLL;
 	
 	// check is nopspemudrm rif
-	if (psprif != NULL && // check if is null
-		psprif->version != 0xFFFF && // check if its not a vita rif
-		!is_offical_rif(psprif)) { // check is NoPspEmuDrm rif, and not an offical rif
+	if (psprif != NULL &&            // check if is null
+		psprif->version != -1 && // check if is psp rif
+		!is_offical_rif(psprif)) {   // check is NoPspEmuDrm rif, and not an offical rif
 				
 		// vita side never really cares about psp rif keys, so lets just set it to all be 0xFF
 		if (klicensee != NULL){
@@ -129,13 +152,6 @@ static int fakeRifData(PspRif *psprif, uint8_t *klicensee, uint32_t *flags, uint
 
 		if (flags) {
 			*flags = 0 ;
-		/*
-		  if (__builtin_bswap16(psprif->drmType) & 0x200)
-			(*flags) |= 0x1;
-		  if (__builtin_bswap16(psprif->drmType) & 0x100)
-			(*flags) |= 0x10000;
-		  if (__builtin_bswap64(psprif->drmType) & 0x1)
-			(*flags) |= 0x2; */
 		}
 		
 		return 1;
@@ -166,21 +182,27 @@ static int ksceNpDrmGetRifPspKeyPatched(PspRif *psprif, uint8_t *klicensee, uint
 	}
 	return ret;
 }
-
-static int return_0() {
-	return 0;
-}
-
-static int return_1() {
-	return 1;
-}
-
 static int ksceNpDrmReadActDataPatched(PspAct* activationData) {
-	int ret = TAI_CONTINUE(int, ksceNpDrmGetRifPspKeyRef, activationData);
-	ksceKernelPrintf("[nopspemudrm_compat_patch] ksceNpDrmReadActDataPatched called (ret %x)\n",ret);
+	int ret = TAI_CONTINUE(int, ksceNpDrmReadActDataRef, activationData);
 	
-	// TODO: fake activation data so pspemu can work without activation at all~
-
+	if(ret < 0){ // if console not activated -- fake activation
+		ksceKernelPrintf("[NoPspEmuDrm_kern] Console does not have NpDrm activation, faking it!\n",ret);
+	
+	    // copy fake act.dat into buffer
+		memcpy(activationData, FakeActBuffer, sizeof(PspAct));
+		
+		// Copy current OpenPSID into it
+		SceOpenPsId openPsid;
+		ksceSblAimgrGetOpenPsId(&openPsid);
+		memcpy(activationData->openPsId, openPsid.open_psid, 0x10);
+		
+		// Copy current Account ID
+		ksceRegMgrGetKeyBin("/CONFIG/NP", "account_id", &activationData->accountId, sizeof(uint64_t));
+				
+		// Wipe signature
+		memset(activationData->ecdsaSig, 0xFF, 0x28);		
+	}
+	
 	return ret;
 }
 
@@ -190,23 +212,27 @@ int module_start(SceSize args, void *argp) {
 	tai_info.size = sizeof(tai_info);
 	int ret = taiGetModuleInfoForKernel(KERNEL_PID, "SceNpDrm", &tai_info);
 	if(ret < 0) {
-		ksceKernelPrintf("[nopspemudrm_kern] SceNpDrm not exist??? %x\n", ret);
+		ksceKernelPrintf("[NoPspEmuDrm_kern] SceNpDrm not exist??? %x\n", ret);
 	}
 
-
+	// rif patch
 	ksceNpDrmGetRifInfoHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmGetRifInfoRef, "SceNpDrm", 0xD84DC44A, 0xDB406EAE, ksceNpDrmGetRifInfoPatched); // ksceNpDrmGetRifInfo
 	ksceNpDrmGetRifVitaKeyHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmGetRifVitaKeyRef, "SceNpDrm", 0xD84DC44A, 0x723322B5, ksceNpDrmGetRifVitaKeyPatched); // ksceNpDrmGetRifVitaKey
 	ksceNpDrmGetRifPspKeyHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmGetRifPspKeyRef, "SceNpDrm", 0xD84DC44A, 0xDACB71F4, ksceNpDrmGetRifPspKeyPatched); // ksceNpDrmGetRifPspKey
+
+	// act.dat patch
+	ksceNpDrmReadActDataHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmReadActDataRef, "SceNpDrm", 0xD84DC44A, 0xD91C3BCE, ksceNpDrmReadActDataPatched); // ksceNpDrmReadActData
 	
+	// __sce_ebootpbp patches
 	ksceNpDrmEbootSigVerifyHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmEbootSigVerifyRef, "SceNpDrm", 0xD84DC44A, 0x7A319692, return_0); // //ksceNpDrmEbootSigVerifyHook
 	ksceNpDrmPspEbootVerifyHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmPspEbootVerifyRef, "SceNpDrm", 0xD84DC44A, 0x7A319692, return_0); // //ksceNpDrmPspEbootVerifyHook
 	
-	// compat.skprx patches
+	// allow SceCompat to start without a rif or activation
 	ksceSblAimgrIsDEXHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceSblAimgrIsDEXRef, "SceCompat", 0xFD00C69A, 0xF4B98F66, return_1); // ksceSblAimgrIsDEX
-	//ksceNpDrmReadActDataHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceNpDrmReadActDataRef, "SceCompat", 0xD84DC44A, 0xD91C3BCE, ksceNpDrmReadActDataPatched); // ksceNpDrmReadActData
 
-	// patch rif signature verification
-	npdrm_rif_verify_ecdsa_and_rsa_hook = taiHookFunctionOffsetForKernel(KERNEL_PID, &npdrm_rif_verify_ecdsa_and_rsa_ref, tai_info.modid, 0, 0xA8D8, 1, return_0); // signature patch	
+	// Patch rif and act.dat signature checks, so the vita thinks our licenses are *LEGIT*
+	npdrm_rif_verify_ecdsa_and_rsa_hook = taiHookFunctionOffsetForKernel(KERNEL_PID, &npdrm_rif_verify_ecdsa_and_rsa_ref, tai_info.modid, 0, 0xA8D8, 1, return_0); // rif_verify_ecdsa_and_rsa
+	npdrm_act_verify_ecdsa_and_rsa_hook = taiHookFunctionOffsetForKernel(KERNEL_PID, &npdrm_act_verify_ecdsa_and_rsa_ref, tai_info.modid, 0, 0xA840, 1, return_0);  // act_verify_ecdsa_and_rsa
 	
 	return SCE_KERNEL_START_SUCCESS;
 }
@@ -222,6 +248,7 @@ int module_stop(SceSize args, void *argp) {
 	if (ksceNpDrmReadActDataHook >= 0) taiHookReleaseForKernel(ksceNpDrmReadActDataHook, ksceNpDrmReadActDataRef);
 	
 	if (npdrm_rif_verify_ecdsa_and_rsa_hook >= 0) taiHookReleaseForKernel(npdrm_rif_verify_ecdsa_and_rsa_hook, npdrm_rif_verify_ecdsa_and_rsa_ref);
+	if (npdrm_act_verify_ecdsa_and_rsa_hook >= 0) taiHookReleaseForKernel(npdrm_act_verify_ecdsa_and_rsa_hook, npdrm_act_verify_ecdsa_and_rsa_ref);
 	
 	return SCE_KERNEL_STOP_SUCCESS;
 }

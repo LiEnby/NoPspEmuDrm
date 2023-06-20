@@ -22,6 +22,8 @@ target_link_libraries(NoPspEmuDrm_kern
   taihenForKernel_stub
   SceIofilemgrForDriver_stub
   SceNpDrmForDriver_stub
+  SceRegMgrForDriver_stub
+  SceSblSsMgrForDriver_stub
   SceSysclibForDriver_stub
   SceDebugForDriver_stub
   SceThreadmgrForDriver_stub

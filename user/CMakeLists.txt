@@ -36,7 +36,9 @@ add_executable(NoPspEmuDrm_user
 target_link_libraries(NoPspEmuDrm_user
 	taiHEN_stub
 	SceLibKernel_stub
-	SceLibc_stub_weak # cannot load into SceShell without this
+	SceCompat_stub
+	SceLibc_stub_weak
+	SceNpDrm_stub
 	SceRegistryMgr_stub
 	SceAppMgr_stub
 	SceDisplay_stub
