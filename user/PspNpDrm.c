@@ -13,8 +13,6 @@
 
 #include <vitasdk.h>
 
-int _sceNpDrmCheckActData(int *act_type, int *version_flag, uint64_t *account_id, uint64_t expire_date[2]);
-
 int is_offical_rif(PspRif* rif){
 	for(int i = 0; i < 0x28; i++) {
 		if(rif->ecdsaSig[i] != 0xff) {
@@ -166,7 +164,7 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 		return invalidState;
 	}
 	
-	// check the rif is for this accoun
+	// check the rif is for this account
 	if(rif->accountId != accountId) { 
 		sceClibPrintf("[RIFCHECK] account Id do not match\n");
 		return invalidState;
