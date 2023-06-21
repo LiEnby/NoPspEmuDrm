@@ -205,7 +205,7 @@ static int ksceNpDrmReadActDataPatched(PspAct* activationData) {
 	int ret = TAI_CONTINUE(int, ksceNpDrmReadActDataRef, activationData);
 	
 	if(ret < 0){ // if console not activated -- fake activation
-		ksceKernelPrintf("[NoPspEmuDrm_kern] Console does not have NpDrm activation, faking it!\n",ret);
+		//ksceKernelPrintf("[NoPspEmuDrm_kern] Console does not have NpDrm activation, faking it!\n",ret);
 	
 		// copy fake act.dat into buffer
 		memcpy(activationData, FakeActBuffer, sizeof(PspAct));
@@ -239,7 +239,7 @@ int module_start(SceSize args, void *argp) {
 	tai_info.size = sizeof(tai_info);
 	int ret = taiGetModuleInfoForKernel(KERNEL_PID, "SceNpDrm", &tai_info);
 	if(ret < 0) {
-		ksceKernelPrintf("[NoPspEmuDrm_kern] SceNpDrm not exist??? %x\n", ret);
+		//ksceKernelPrintf("[NoPspEmuDrm_kern] SceNpDrm not exist??? %x\n", ret);
 	}
 
 	// rif patch

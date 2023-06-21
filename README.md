@@ -1,4 +1,4 @@
-# NoPspEmuDrm
+# NoPspEmuDrm:
 
 A plugin to bypass all PSPEmu DRM Checks,
 so you can play digital PSP or PS1 game backups; or of course- games you legitimately own but on another PSN Account
@@ -8,18 +8,23 @@ Defintely do not use this for piracy that would be bad mmkay?
 Okay, now that message to keep the lawyers happy is out of the way --
 
 Features: 
+
 - Play any PSP, PSX, NeoGeo, PC Engine or TurboGrafix16 contents without a license
-  -- Directly from the livearea, as if you got it from the PlayStation Store, no Adrenaline.
+-- Directly from the livearea, as if you got it from the PlayStation Store, no Adrenaline.
+
 - Use any PSP DLC Content (EDATs) without a license
+
 - Use PocketStation functionality with PSX games that support it.
   note: requires "PocketStation App" to be installed.
+
 - Start PspEmu content without NpDrm activation
 
-# Installation
+
+# Installation:
 The plugin consists of two parts; a kernel plugin and a user plugin;
 both need to be installed for it to work correctly;
 
-the config.txt entries you need are: 
+the config.txt entries you need are:
 
 ```
 *KERNEL
@@ -28,10 +33,25 @@ ur0:/tai/NoPspEmuDrm_kern.skprx
 ur0:/tai/NoPspEmuDrm_user.suprx
 ```
 
-# Installation of PSP Games
-At the moment, neither PKGJ nor VitaShell support "promoting" PSP content
+# Installation of PSP Games:
+Copy digital EBOOT.PBP to PSP/GAME folder to ux0:/pspemu/PSP/GAME
 
-# Credits
+( if you use pkgj version v0.55 you need to add `install_psp_as_pbp 1` to the config.txt )
+( if you use nps browser with PKG2ZIP v2.3 or older; you need to add `-p` argument to the pkg2zip parameters )
+
+-- 
+Currently, neither VitaShell or PKGJ support "Promoting" PSP games
+However i have a fork of VitaShell that adds this in:
+https://github.com/KuromeSan/VitaShell/releases
+and on the main screen click triangle, press "refresh livearea"
+
+--
+I also got background downloading working; using our original bgdl proof of concept;
+https://github.com/KuromeSan/bgdl_nopspemudrm_poc
+So PKGJ support for it should be availible soon
+
+
+# Credits:
 
 Li         - Main dev; wrote all plugin code (except crypto/), Being transgender
 
@@ -42,4 +62,3 @@ SquallATF  - Wrote alot of the Chovy-Sign2/PspCrypto code that this is heavily b
 TheFlow    - Original NoNpDrm code- NoPspEmuDrm_kern is fork of NoNpDrm.
              and for the original Adrenaline v3.00, which i think i copied like 1 function from
 			 which was for reading/writing to PspEmu memory,
-

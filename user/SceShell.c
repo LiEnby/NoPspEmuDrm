@@ -14,7 +14,7 @@ static int check_license(shell_launch_param *lparam) {
 		if(sceClibStrncmp(lparam->startFolder, "ux0:pspemu/PSP/GAME/", 20) == 0){
 					
 			if(lparam->error != 0) {
-				sceClibPrintf("Faking license for: %s\n", lparam->startFolder);
+				//sceClibPrintf("Faking license for: %s\n", lparam->startFolder);
 
 				lparam->endDate = 0x7FFFFFFFFFFFFFFFull;
 				lparam->flags = 0x2D0001;			

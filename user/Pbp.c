@@ -11,7 +11,7 @@
 #define DEBUG 1 
 
 #ifndef DEBUG
-#define sceClibPrintf(...) {};
+#define //sceClibPrintf(...) {};
 #endif
 
 void get_extension(char* filename, char* ext){
@@ -59,7 +59,7 @@ int read_edat_key(char* file, char* contentId, char* key){
 				read_sz = sceIoRead(fd, &edatPgd, sizeof(NpPgd));
 				
 				if(read_sz >= sizeof(NpPgd) && memcmp(edatPgd.magic, "\0PGD", 0x4) == 0) {
-					sceClibPrintf("[VKEY] FOUND (PSP) EDAT: %s\n", file);
+					//sceClibPrintf("[VKEY] FOUND (PSP) EDAT: %s\n", file);
 					
 					// calculate the edat key
 					ret = sceNpDrmCalcEdatKey(&pspEdat, &edatPgd, key);
@@ -110,7 +110,7 @@ int read_pbp_key(char* file, char* contentId, char* key){
 					if(readSz == sizeof(NpUmdHdr)) {
 						// check the content id matches the one were searching for.
 						if(strcmp(contentId, npUmdHdr.content_id) == 0){
-							sceClibPrintf("[VKEY] FOUND (PSP) EBOOT: %s\n", file);
+							//sceClibPrintf("[VKEY] FOUND (PSP) EBOOT: %s\n", file);
 							// extract key
 							ret = sceNpDrmCalcNpUmdKey(&npUmdHdr, key);
 						}
@@ -144,7 +144,7 @@ int read_pbp_key(char* file, char* contentId, char* key){
 							
 							// check magic is "PGD"
 							if(memcmp(npPgd.magic, "\0PGD", 0x4) == 0) {
-								sceClibPrintf("[VKEY] FOUND (PS1) EBOOT: %s\n", file);
+								//sceClibPrintf("[VKEY] FOUND (PS1) EBOOT: %s\n", file);
 								
 								// extract the key
 								ret = sceNpDrmCalcPgdKey(&npPgd, key);
