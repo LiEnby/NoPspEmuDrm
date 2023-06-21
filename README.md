@@ -28,9 +28,6 @@ ur0:/tai/NoPspEmuDrm_kern.skprx
 ur0:/tai/NoPspEmuDrm_user.suprx
 ```
 
-# Installation of PSP Games
-At the moment, neither PKGJ nor VitaShell support "promoting" PSP content
-
 # Credits
 
 Li         - Main dev; wrote all plugin code (except crypto/), Being transgender
