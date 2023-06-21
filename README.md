@@ -41,13 +41,18 @@ Copy digital EBOOT.PBP to PSP/GAME folder to ux0:/pspemu/PSP/GAME
 
 -- 
 Currently, neither VitaShell or PKGJ support "Promoting" PSP games
+
 However i have a fork of VitaShell that adds this in:
+
 https://github.com/KuromeSan/VitaShell/releases
+
 and on the main screen click triangle, press "refresh livearea"
 
 --
 I also got background downloading working; using our original bgdl proof of concept;
+
 https://github.com/KuromeSan/bgdl_nopspemudrm_poc
+
 So PKGJ support for it should be availible soon
 
 
