@@ -318,7 +318,7 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	}
 	
 	//sceClibPrintf("[VKEY] versionkey: ");
-	print_buf(versionkey, 0x10);
+	//print_buf(versionkey, 0x10);
 	
 	// determine a random key from act.dat to use.
 	int keyId = (int)(random_uint() % 0x80);
