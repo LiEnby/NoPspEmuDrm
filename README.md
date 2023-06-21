@@ -10,7 +10,9 @@ Okay, now that message to keep the lawyers happy is out of the way --
 Features: 
 - Play any PSP, PSX, NeoGeo, PC Engine or TurboGrafix16 contents without a license -- Directly from the livearea- as if you got it from the PlayStation Store.
 - Use any PSP DLC Content (EDATs) without a license 
-- Use PocketStation functionality with PSX games that support it. note: requires "PocketStation App" (ux0:/ps1emu/PCSC80018/texture.enc) to be present
+- Use PocketStation functionality with PSX games that support it.
+  note: requires "PocketStation App" (ux0:/ps1emu/PCSC80018/texture.enc) to be present
+- Start PspEmu content without NpDrm activation
 
 # Credits
 

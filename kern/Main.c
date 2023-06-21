@@ -71,8 +71,22 @@ static SceUID sceCompatCheckPocketStationHook;
 static SceUID npdrm_rif_verify_ecdsa_and_rsa_hook; 
 static SceUID npdrm_act_verify_ecdsa_and_rsa_hook; 
 
+static int check_pksuite_installed() {
+	SceIoStat stat;
+	int pocketstation_installed = ksceIoGetstat("ux0:/ps1emu/PCSC80018/texture.enc", &stat);
+	if(pocketstation_installed >= 0) {
+		return 1;
+	}
+	return 0;
+}
 
 int is_offical_rif(PspRif* rif){
+	// if its pkstation license && we have the pocketstation "app" -- then we want to patch the rif checks-
+	// don't care if its an offical rif or not in that case, 
+	if(strcmp(rif->contentId, "JA0003-PCSC80018_00-POCKETSTATION001") == 0 && check_pksuite_installed())
+		return 0;
+	
+	// otherwise, just check it has all 0xFF ECDSA signature -- created by nopspemudrm.
 	for(int i = 0; i < 0x28; i++) {
 		if(rif->ecdsaSig[i] != 0xff) {
 			return 1;
@@ -213,14 +227,9 @@ static int ksceNpDrmReadActDataPatched(PspAct* activationData) {
 
 static int sceCompatCheckPocketStationPatched() {
 	int res = TAI_CONTINUE(int, sceCompatCheckPocketStationRef);
-	if(res < 0) {
-		SceIoStat stat;
-		int pocketstation_installed = ksceIoGetstat("ux0:/ps1emu/PCSC80018/texture.enc", &stat);
-		if(pocketstation_installed >= 0) {
-			return 0;
-		}
+	if(res < 0 && check_pksuite_installed()) {
+		return 0;
 	}
-	
 	return res;
 }
 
