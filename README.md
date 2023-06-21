@@ -8,11 +8,28 @@ Defintely do not use this for piracy that would be bad mmkay?
 Okay, now that message to keep the lawyers happy is out of the way --
 
 Features: 
-- Play any PSP, PSX, NeoGeo, PC Engine or TurboGrafix16 contents without a license -- Directly from the livearea- as if you got it from the PlayStation Store.
-- Use any PSP DLC Content (EDATs) without a license 
+- Play any PSP, PSX, NeoGeo, PC Engine or TurboGrafix16 contents without a license
+  -- Directly from the livearea, as if you got it from the PlayStation Store, no Adrenaline.
+- Use any PSP DLC Content (EDATs) without a license
 - Use PocketStation functionality with PSX games that support it.
-  note: requires "PocketStation App" (ux0:/ps1emu/PCSC80018/texture.enc) to be present
+  note: requires "PocketStation App" to be installed.
 - Start PspEmu content without NpDrm activation
+
+# Installation
+The plugin consists of two parts; a kernel plugin and a user plugin;
+both need to be installed for it to work correctly;
+
+the config.txt entries you need are: 
+
+```
+*KERNEL
+ur0:/tai/NoPspEmuDrm_kern.skprx
+*ALL
+ur0:/tai/NoPspEmuDrm_user.suprx
+```
+
+# Installation of PSP Games
+At the moment, neither PKGJ nor VitaShell support "promoting" PSP content
 
 # Credits
 

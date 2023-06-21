@@ -55,6 +55,7 @@ int sceshell_module_start(tai_module_info_t tai_info) {
 		case 0x3C652B1A: // testkit 3.67 SceShell
 		case 0x4DF04256: // testkit 3.68 SceShell
 		case 0xA6509361: // testkit 3.72 SceShell
+		case 0xD7AE3036: // testkit 3.73 SceShell
 			check_license_hook = taiHookFunctionOffset(&check_license_hook_ref, tai_info.modid, 0, 0x1BEE2, 1, check_license);
 			break;
 		case 0x0552F692: // retail 3.60 SceShell
