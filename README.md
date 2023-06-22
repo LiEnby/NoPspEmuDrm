@@ -57,11 +57,11 @@ So PKGJ support for it should be availible soon
 
 # Note:
 - this is not an eCFW and will not work with PSX2PSP or Homebrew applications - only offical content. ( chovy-sign / sign_np will work though )
-  
+
+- First time startup of a game may take longer than later runs as it has to find the games decryption key, however it is cached after that and will be faster
+
 - PSP EBOOT.PBP games dont work in adrenaline by default because adrenaline do not patch npumd drm.
 (can be fixed with npdrm_free psp plugin by qwikrazor however.)
-
-- First time startup of a game may take longer than later runs as it has to find the games decryption key, however it is cached after that 
 
 # Credits:
 
