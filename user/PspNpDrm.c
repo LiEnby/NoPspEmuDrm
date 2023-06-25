@@ -37,13 +37,6 @@ int is_npdrm_activated() {
 		return 0;
 }
 
-static void print_buf(unsigned char* buffer, int sz){
-	for(int i = 0; i < sz; i++){
-		//sceClibPrintf("%02X ", buffer[i]);
-	}
-	//sceClibPrintf("\n");
-}
-
 int reverse_gen_versionkey(char* versionkey, int keyindex)
 {
 	keyindex &= 0xffffff;
@@ -94,11 +87,9 @@ int get_activation_data(PspAct* act) {
 	// read act.dat
 	
 	if(is_npdrm_activated()) {
-		//sceClibPrintf("[RIFGEN] Reading act.dat\n");
 		ReadFile("tm0:/npdrm/act.dat", act, sizeof(PspAct));
 	}
 	else {
-		//sceClibPrintf("[RIFGEN] Your console is missing NpDrm activation. Faking it..\n");
 		memcpy(act, FakeActBuffer, sizeof(PspAct));
 	}
 	
@@ -146,8 +137,6 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 	// if its an offical rif, set OFFICAL_INVALID, so we dont overwrite it when generating fake rif.
 	int invalidState = officalRif ? OFFICAL_INVALID : NOPSPEMUDRM_INVALID;
 
-	//sceClibPrintf("[RIFCHECK] is offical rif? %x\n",  officalRif);
-	//sceClibPrintf("[RIFCHECK] is npdrm activated? %x\n",  isActivated);
 	
 	// get the current account
 	uint64_t accountId = -1;
@@ -160,37 +149,31 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 	
 	// check the console is activated
 	if(officalRif && !isActivated) {
-		//sceClibPrintf("[RIFCHECK] offical rif, but console is not activated.\n");
 		return invalidState;
 	}
 	
 	// check the rif is for this account
 	if(rif->accountId != accountId) { 
-		//sceClibPrintf("[RIFCHECK] account Id do not match\n");
 		return invalidState;
 	}
 
 	// check the rif contentid matches
 	if(strcmp(expectedContentId, rif->contentId) != 0) {
-		//sceClibPrintf("[RIFCHECK] content Id do not match\n");
 		return invalidState;
 	}
 	
-	// check versionFlag is 1 && that you are npdrm activated
-	if(!officalRif && rif->versionFlag == __builtin_bswap16(1) && !isActivated) {
-		//sceClibPrintf("[RIFCHECK] cached rif is for activated console\n");
+	// check versionFlag matches npdrm activation status
+	if(!officalRif && rif->versionFlag != __builtin_bswap16(isActivated)) {
 		return invalidState;
 	}
 	
 	// check rif start time
 	if(rif->startTime != 0 && rtcTick.tick < rif->startTime) {
-		//sceClibPrintf("[RIFCHECK] rif start date not yet reached\n");
 		return invalidState;
 	}
 
 	// check rif end time
 	if(rif->endTime != 0 && rtcTick.tick > rif->endTime) {
-		//sceClibPrintf("[RIFCHECK] rif is expired\n");
 		return invalidState;
 	}
 
@@ -199,7 +182,6 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 		if(rif->encKey2[i] != 0x00) return VALID_RIF;
 	}
 	
-	//sceClibPrintf("[RIFCHECK] encKey2 is all 0\n");
 	return invalidState;
 }
 
@@ -313,12 +295,10 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	
 	// get version key
 	if(!search_games("ms0:/PSP/GAME", contentId, versionkey)) {
-		//sceClibPrintf("[VKEY] Unable to find versionkey!!!\n");
 		return;
 	}
 	
-	//sceClibPrintf("[VKEY] versionkey: ");
-	print_buf(versionkey, 0x10);
+	//print_buf(versionkey, 0x10);
 	
 	// determine a random key from act.dat to use.
 	int keyId = (int)(random_uint() % 0x80);
@@ -336,7 +316,7 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	// 
 	// the psp firmware never does anything with this besides checking its not 0x30000 or something like that anyway-
 
-	rif->versionFlag = is_npdrm_activated() ? __builtin_bswap16(1) :  __builtin_bswap16(0);
+	rif->versionFlag = __builtin_bswap16(is_npdrm_activated());
 	
 	// set license flag
 	rif->licenseType = 0;

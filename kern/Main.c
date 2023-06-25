@@ -205,7 +205,6 @@ static int ksceNpDrmReadActDataPatched(PspAct* activationData) {
 	int ret = TAI_CONTINUE(int, ksceNpDrmReadActDataRef, activationData);
 	
 	if(ret < 0){ // if console not activated -- fake activation
-		//ksceKernelPrintf("[NoPspEmuDrm_kern] Console does not have NpDrm activation, faking it!\n",ret);
 	
 		// copy fake act.dat into buffer
 		memcpy(activationData, FakeActBuffer, sizeof(PspAct));
@@ -239,11 +238,13 @@ int module_start(SceSize args, void *argp) {
 	tai_info.size = sizeof(tai_info);
 	int ret = taiGetModuleInfoForKernel(KERNEL_PID, "SceNpDrm", &tai_info);
 	if(ret < 0) {
-		//ksceKernelPrintf("[NoPspEmuDrm_kern] SceNpDrm not exist??? %x\n", ret);
+		SCE_KERNEL_START_FAILED;
 	}
 
 	// rif patch
-	ksceNpDrmGetRifInfoHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmGetRifInfoRef, "SceNpDrm", 0xD84DC44A, 0xDB406EAE, ksceNpDrmGetRifInfoPatched); // ksceNpDrmGetRifInfo
+	ksceNpDrmGetRifInfoHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmGetRifInfoRef, "SceNpDrm", 0xD84DC44A, 0xDB406EAE, ksceNpDrmGetRifInfoPatched); 
+	
+	// ksceNpDrmGetRifInfo
 	ksceNpDrmGetRifVitaKeyHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmGetRifVitaKeyRef, "SceNpDrm", 0xD84DC44A, 0x723322B5, ksceNpDrmGetRifVitaKeyPatched); // ksceNpDrmGetRifVitaKey
 	ksceNpDrmGetRifPspKeyHook = taiHookFunctionExportForKernel(KERNEL_PID, &ksceNpDrmGetRifPspKeyRef, "SceNpDrm", 0xD84DC44A, 0xDACB71F4, ksceNpDrmGetRifPspKeyPatched); // ksceNpDrmGetRifPspKey
 
@@ -255,6 +256,7 @@ int module_start(SceSize args, void *argp) {
 	// allow SceCompat to start without a rif or activation
 	ksceNpDrmReadActDataHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceNpDrmReadActDataRef, "SceCompat", 0xD84DC44A, 0xD91C3BCE, ksceNpDrmReadActDataPatched); // ksceNpDrmReadActData
 	ksceSblAimgrIsDEXHook = taiHookFunctionImportForKernel(KERNEL_PID, &ksceSblAimgrIsDEXRef, "SceCompat", 0xFD00C69A, 0xF4B98F66, return_1); // ksceSblAimgrIsDEX
+	// patch pocketstation rif checks
 	sceCompatCheckPocketStationHook = taiHookFunctionExportForKernel(KERNEL_PID, &sceCompatCheckPocketStationRef, "SceCompat", 0x0F35909D, 0x96FC2A87, sceCompatCheckPocketStationPatched); // sceCompatCheckPocketStation
 
 	// Patch rif and act.dat signature checks, so the vita thinks our licenses are *LEGIT*

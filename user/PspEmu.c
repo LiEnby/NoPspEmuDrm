@@ -55,54 +55,31 @@ void get_functions() {
 
 void nop_func(uintptr_t addr){
 	
-	//sceClibPrintf("[NPDRM_PATCH] Nopping : %p\n", addr);
 	char *opcode = (char *)ScePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_INVALIDATE, 0x8);
 	
-	//sceClibPrintf("[NPDRM_PATCH] prev instruction: %llx\n", *(uint32_t*)opcode);
-	
-	*(uint64_t*) opcode = 0x3e0000824020000ull; // li $v0 0, jr $ra
-	
-	//sceClibPrintf("[NPDRM_PATCH] new instruction: %llx\n", *(uint32_t*)opcode);
-	
+	*(uint64_t*) opcode = 0x3e0000824020000ull; // li $v0 0, jr $ra (return 0;)
+		
 	ScePspemuWritebackCache(opcode, 0x8);
-	
-}
-
-void nop(uintptr_t addr){
-	
-	//sceClibPrintf("[NPDRM_PATCH] Nopping : %p\n", addr);
-	char *opcode = (char *)ScePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_INVALIDATE, 0x4);
-	
-	//sceClibPrintf("[NPDRM_PATCH] prev instruction: %x\n", *(uint32_t*)opcode);
-	
-	memset(opcode, 0x00, 0x4);
-
-	//sceClibPrintf("[NPDRM_PATCH] new instruction: %x\n", *(uint32_t*)opcode);
-	
-	ScePspemuWritebackCache(opcode, 0x4);
 }
 
 uintptr_t find_npdrm_key(){
-	
-	
 	uintptr_t addr = 0x88000000;
 	size_t sz = (32 * 1024 * 1024);
 	
 	char *m = (char *)ScePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_NONE, sz);
 	
-	//sceClibPrintf("[NPDRM_PATCH] Searching for npdrm rif ecdsa key in memory ...\n");
 	int found = 0;
 	
 	char* end = m + sz;
 	char* ptr = m;
-	while(!found && ptr < end){
-		if(memcmp(ptr++, PSP_RIF_ECDSA, sizeof(PSP_RIF_ECDSA)) == 0)
+	while(!found && ptr < end) {
+		if(memcmp(ptr++, PSP_RIF_ECDSA, sizeof(PSP_RIF_ECDSA)) == 0) {
 			found = 1;
+		}
 	}
 	
 	int offset = (0x88000000 + (ptr - m));
 	
-	//sceClibPrintf("[NPDRM_PATCH] Found npdrm key at %p\n", offset);
 	return offset;
 	
 }
@@ -117,7 +94,6 @@ void patch_npdrm_prx(){
 }
 
 void handle_rif(const char** file){
-	//sceClibPrintf("[RIFCHECK] Handling: %s\n", *file);
 	const char* nodrm_rif = "ux0:/temp/pspemu/nodrm.rif";
 	
 	char contentId[0x100];
@@ -125,22 +101,19 @@ void handle_rif(const char** file){
 	
 	int cnt = strlen(*file);
 	strncpy(contentId, *file + (cnt - 40), 36);
-	
-	//sceClibPrintf("[RIFCHECK] Searching for drm file of %s\n", contentId);
-	
+		
 	patch_npdrm_prx();	
 	
 	PspRifState state = sceNpDrmCheckRifState(contentId, *file);
 	
 	if(state == VALID_RIF){ // there is already a rif for this game and its valid, so just use that
-		//sceClibPrintf("[RIFCHECK] Valid rif already exists!\n");
 		return;
 	}
 	
 	if(state == OFFICAL_INVALID) { // this is an offical rif, but its not for this game or account
 								   // generate a new rif in a temporary folder, and use that
 								   // as do not want to overwrite any legitimate rif files
-		//sceClibPrintf("[RIFCHECK] Valid rif exist but its not for our account.. fake rif at temporary location!\n");
+		sceIoMkdir("ux0:/temp/pspemu", 0777);
 		sceNpDrmGenerateRif(contentId, nodrm_rif);
 		*file = nodrm_rif;
 	}
@@ -148,7 +121,6 @@ void handle_rif(const char** file){
 	if(state == NOPSPEMUDRM_INVALID) { // this is a nopspemudrm rif but for another account
 									   // so must regenerate this rif. and its fine to overwrite the original
 									   // because it is not an offical rif.
-		//sceClibPrintf("[RIFCHECK] Valid rif not exist (or is for another account) generating fake rif!\n");
 		sceIoMkdir("ms0:/PSP/LICENSE", 0777);
 		sceNpDrmGenerateRif(contentId, *file);		
 	}
@@ -160,7 +132,7 @@ static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 	
 	if( file != NULL && ret < 0 && IS_RIF_PATH(file)) {
 		// fake it existing
-		//sceClibPrintf("[STAT] faking sceIoGetstat success to: %s\n", file);
+		
 		memset(stat, 0x00, sizeof(SceIoStat));
 		stat->st_mode = 0x2186;
 		stat->st_attr = 0x0;
@@ -206,7 +178,7 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 	return SCE_KERNEL_START_SUCCESS;
 }
 
-int  pspemu_module_stop() {
+int pspemu_module_stop() {
 	if(sceIoOpenHook >= 0) taiHookRelease(sceIoOpenHook, sceIoOpenRef);
 	if(sceIoGetstatHook >= 0) taiHookRelease(sceIoGetstatHook, sceIoGetstatRef);
 	

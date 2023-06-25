@@ -14,8 +14,6 @@ static int check_license(shell_launch_param *lparam) {
 		if(sceClibStrncmp(lparam->startFolder, "ux0:pspemu/PSP/GAME/", 20) == 0){
 					
 			if(lparam->error != 0) {
-				//sceClibPrintf("Faking license for: %s\n", lparam->startFolder);
-
 				lparam->endDate = 0x7FFFFFFFFFFFFFFFull;
 				lparam->flags = 0x2D0001;			
 				lparam->error = 0;
@@ -39,11 +37,11 @@ int sceshell_module_start(tai_module_info_t tai_info) {
 		case 0xE541DB9B: // devkit 3.63 SceShell
 			check_license_hook = taiHookFunctionOffset(&check_license_hook_ref, tai_info.modid, 0, 0x1BC16, 1, check_license);
 			break;
-		case 0xE6A02F2B: //devkit 3.65 SceShell
-		case 0xAB5C2A00: //devkit 3.67 SceShell
-		case 0x4FE7C671: //devkit 3.68 SceShell
-		case 0xC5B7C871: //devkit 3.71 SceShell
-		case 0x4670A0C8: //devkit 3.73 SceShell
+		case 0xE6A02F2B: // devkit 3.65 SceShell
+		case 0xAB5C2A00: // devkit 3.67 SceShell
+		case 0x4FE7C671: // devkit 3.68 SceShell
+		case 0xC5B7C871: // devkit 3.71 SceShell
+		case 0x4670A0C8: // devkit 3.73 SceShell
 			check_license_hook = taiHookFunctionOffset(&check_license_hook_ref, tai_info.modid, 0, 0x1BC6E, 1, check_license);
 			break;
 		case 0xEAB89D5C: // testkit 3.60 SceShell
