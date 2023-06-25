@@ -34,7 +34,7 @@ ur0:/tai/NoPspEmuDrm_user.suprx
 ```
 
 # Installation of PSP Games:
-Copy digital EBOOT.PBP to PSP/GAME folder to ux0:/pspemu/PSP/GAME
+Copy digital PSP/GAME folder to ux0:/pspemu/PSP/GAME
 
 ( if you use pkgj version v0.55 you need to add `install_psp_as_pbp 1` to the config.txt )
 ( if you use nps browser with PKG2ZIP v2.3 or older; you need to add `-p` argument to the pkg2zip parameters )
@@ -55,6 +55,13 @@ https://github.com/KuromeSan/bgdl_nopspemudrm_poc
 
 So PKGJ support for it should be availible soon
 
+# Note:
+- this is not an eCFW and will not work with PSX2PSP or Homebrew applications - only offical content. ( chovy-sign / sign_np will work though )
+
+- First time startup of a game may take longer than later runs as it has to find the games decryption key, however it is cached after that and will be faster
+
+- PSP EBOOT.PBP games dont work in adrenaline by default because adrenaline do not patch npumd drm.
+(can be fixed with npdrm_free psp plugin by qwikrazor however.)
 
 # Credits:
 

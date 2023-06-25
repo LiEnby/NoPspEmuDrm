@@ -297,9 +297,7 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	if(!search_games("ms0:/PSP/GAME", contentId, versionkey)) {
 		return;
 	}
-	
-	//print_buf(versionkey, 0x10);
-	
+		
 	// determine a random key from act.dat to use.
 	int keyId = (int)(random_uint() % 0x80);
 	
