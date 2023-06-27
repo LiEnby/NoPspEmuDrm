@@ -56,7 +56,7 @@ https://github.com/KuromeSan/bgdl_nopspemudrm_poc
 So PKGJ support for it should be availible soon
 
 # Note:
-- this is not an eCFW and will not work with PSX2PSP or Homebrew applications - only offical content. ( chovy-sign / sign_np will work though )
+- this is not an eCFW and will not work with PSX2PSP or Homebrew applications - only official content. ( chovy-sign / sign_np will work though )
 
 - First time startup of a game may take longer than later runs as it has to find the games decryption key, however it is cached after that and will be faster
 
