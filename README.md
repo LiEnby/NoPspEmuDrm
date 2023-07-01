@@ -19,7 +19,8 @@ Features:
 
 - Start PspEmu content without NpDrm activation
 
-
+- Force \_\_sce\_ebootpbp signature file validation success (means- psp bubbles wont be thanos snapped out of existance upon downgrading or changing accounts)
+  
 # Installation:
 The plugin consists of two parts; a kernel plugin and a user plugin;
 both need to be installed for it to work correctly;
