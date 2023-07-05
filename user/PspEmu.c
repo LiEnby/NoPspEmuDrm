@@ -29,6 +29,7 @@
 #include <taihen.h>
 
 #include "crypto/kirk_engine.h"
+#include "Log.h"
 #include "PspEmu.h"
 #include "PspNpDrm.h"
 
@@ -43,54 +44,79 @@ static SceUID sceIoGetstatHook;
 static tai_hook_ref_t sceIoOpenRef;
 static tai_hook_ref_t sceIoGetstatRef;
 
-static int patched_npdrm_prx = 0;
+static uint32_t npdrm_key_addr = 0;
 
-uint32_t text_addr, text_size, data_addr, data_size;
-
-
-void get_functions() {
+void get_functions(uint32_t text_addr) {
 	ScePspemuConvertAddress = (void *)text_addr + 0x6364 + 0x1;
 	ScePspemuWritebackCache = (void *)text_addr + 0x6490 + 0x1;
 }
 
 void nop_func(uintptr_t addr){
-	
 	char *opcode = (char *)ScePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_INVALIDATE, 0x8);
-	
 	*(uint64_t*) opcode = 0x3e0000824020000ull; // li $v0 0, jr $ra (return 0;)
-		
 	ScePspemuWritebackCache(opcode, 0x8);
+}
+
+int check_npdrm_key_addr(int addr) {
+	if(addr == 0) {
+		log("[NOPSPEMUDRM_USER] npdrm_key_addr is nullptr\n", addr);
+		return 0;
+	}
+	
+	char *rif_key = (char *)ScePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_NONE, sizeof(PSP_RIF_ECDSA));
+	
+	if(memcmp(rif_key, PSP_RIF_ECDSA, sizeof(PSP_RIF_ECDSA)) == 0) {
+		log("[NOPSPEMUDRM_USER] npdrm_key_addr %x is still correct.\n", addr);
+		return 1;
+	}
+	
+	log("[NOPSPEMUDRM_USER] npdrm_key_addr %x is no longer correct.\n", addr);
+	return 0;
 }
 
 uintptr_t find_npdrm_key(){
 	uintptr_t addr = 0x88000000;
 	size_t sz = (32 * 1024 * 1024);
 	
-	char *m = (char *)ScePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_NONE, sz);
+	log("[NOPSPEMUDRM_USER] locating npdrm rif ecdsa key ... ");
 	
-	int found = 0;
+	char *m = (char *)ScePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_NONE, sz);
 	
 	char* end = m + sz;
 	char* ptr = m;
-	while(!found && ptr < end) {
+	while(ptr < end) {
 		if(memcmp(ptr++, PSP_RIF_ECDSA, sizeof(PSP_RIF_ECDSA)) == 0) {
-			found = 1;
+			break;
 		}
 	}
 	
-	int offset = (0x88000000 + (ptr - m));
+	int offset = (0x88000000 + (ptr - m)) - 1;
+	
+	log("found at %x\n", offset);
 	
 	return offset;
 	
 }
 
 void patch_npdrm_prx(){
-	if(!patched_npdrm_prx){
-		uintptr_t addr = find_npdrm_key(); // 0x880ef7c1
-		nop_func(addr - 0x33D9); // 0x880ec3e8
-		nop_func(addr - 0x3341); // 0x880ec480
-		patched_npdrm_prx = 1;
+	
+	/*
+	*	npdrm.prx loads in different location on each firmware and even depending on pops or psp mode
+	*	this code will search for the npdrm ECDSA rif key, as it is at a constant location in the prx
+	*	will then calculate the offsets to the verify rif and verify act.dat functions from there
+	*
+	*	- i used to use a boolean variable to determine if was patched already
+	*	  however, it turns out some PSP games (e.g POWER STONE COLLETION) will reboot the PSP
+	*	  so instead im only caching the memory search result (which is the "slow" part)
+	*	  and patching the npdrm module every time .. its a bit of a hack but it should work.
+	*/
+	
+	if(!check_npdrm_key_addr(npdrm_key_addr)) {
+		npdrm_key_addr = find_npdrm_key(); // 0x880ef7c1
 	}
+	
+	nop_func(npdrm_key_addr - 0x33D8); // 0x880ec3e8 => sceNpDrmVerifyRif
+	nop_func(npdrm_key_addr - 0x3340); // 0x880ec480 => sceNpDrmVerifyAct
 }
 
 void handle_rif(const char** file){
@@ -107,12 +133,14 @@ void handle_rif(const char** file){
 	PspRifState state = sceNpDrmCheckRifState(contentId, *file);
 	
 	if(state == VALID_RIF){ // there is already a rif for this game and its valid, so just use that
+		log("[NOPSPEMUDRM_USER] valid rif found.\n");
 		return;
 	}
 	
 	if(state == OFFICAL_INVALID) { // this is an offical rif, but its not for this game or account
 								   // generate a new rif in a temporary folder, and use that
 								   // as do not want to overwrite any legitimate rif files
+		log("[NOPSPEMUDRM_USER] invalid rif, state is OFFICAL_INVALID\n");
 		sceIoMkdir("ux0:/temp/pspemu", 0777);
 		sceNpDrmGenerateRif(contentId, nodrm_rif);
 		*file = nodrm_rif;
@@ -121,6 +149,7 @@ void handle_rif(const char** file){
 	if(state == NOPSPEMUDRM_INVALID) { // this is a nopspemudrm rif but for another account
 									   // so must regenerate this rif. and its fine to overwrite the original
 									   // because it is not an offical rif.
+		log("[NOPSPEMUDRM_USER] invalid rif, state is NOPSPEMUDRM_INVALID\n");
 		sceIoMkdir("ms0:/PSP/LICENSE", 0777);
 		sceNpDrmGenerateRif(contentId, *file);		
 	}
@@ -130,9 +159,9 @@ void handle_rif(const char** file){
 static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 	int ret = TAI_CONTINUE(SceUID, sceIoGetstatRef, file, stat);	
 	
-	if( file != NULL && ret < 0 && IS_RIF_PATH(file)) {
+	if( file != NULL && (ret < 0 && IS_RIF_PATH(file))) {
+		log("[NOPSPEMUDRM_USER] rif_getstat: %s %x\n", file, stat);
 		// fake it existing
-		
 		memset(stat, 0x00, sizeof(SceIoStat));
 		stat->st_mode = 0x2186;
 		stat->st_attr = 0x0;
@@ -146,6 +175,7 @@ static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 static SceUID sceIoOpenPatched(const char *file, int flags, SceMode mode) {
 	
 	if(file != NULL && IS_RIF_PATH(file)){
+		log("[NOPSPEMUDRM_USER] rif_open: %s %x %x\n", file, flags, mode);
 		handle_rif(&file);
 	}
 	
@@ -160,15 +190,8 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 		return SCE_KERNEL_START_NO_RESIDENT;
 	}
 	
-	// Addresses
-	text_addr = (uint32_t)mod_info.segments[0].vaddr;
-	text_size = (uint32_t)mod_info.segments[0].memsz;
-
-	data_addr = (uint32_t)mod_info.segments[1].vaddr;
-	data_size = (uint32_t)mod_info.segments[1].memsz;
-
-	// Get PSPEMU functions
-	get_functions();
+	// Get PspEmu functions
+	get_functions((uint32_t)mod_info.segments[0].vaddr);
 
 	kirk_init();
 		

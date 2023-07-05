@@ -6,6 +6,7 @@
 #include "Io.h"
 #include "Pbp.h"
 #include "Crypto.h"
+#include "Log.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -137,7 +138,6 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 	// if its an offical rif, set OFFICAL_INVALID, so we dont overwrite it when generating fake rif.
 	int invalidState = officalRif ? OFFICAL_INVALID : NOPSPEMUDRM_INVALID;
 
-	
 	// get the current account
 	uint64_t accountId = -1;
 	sceRegMgrGetKeyBin("/CONFIG/NP", "account_id", &accountId, sizeof(uint64_t));
@@ -145,35 +145,59 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 	// get current secure tick
 	SceRtcTick rtcTick;
 	memset(&rtcTick, 0x00, sizeof(SceRtcTick));
-	sceCompatGetCurrentSecureTick(&rtcTick);
+	sceCompatGetCurrentSecureTick(&rtcTick) >= 0;
+	
+	log("[NOPSPEMUDRM_USER] == console information ==\n");
+	log("[NOPSPEMUDRM_USER] secure tick %llx\n", rtcTick.tick);
+	log("[NOPSPEMUDRM_USER] account id: %llx\n", accountId);
+	log("[NOPSPEMUDRM_USER] invalid state: %x\n", invalidState);
+	log("[NOPSPEMUDRM_USER] is activated: %x\n", isActivated);
+	log("[NOPSPEMUDRM_USER] offical rif: %x\n", officalRif);
+	log("[NOPSPEMUDRM_USER] expected content id: %s\n", expectedContentId);
+	
+	log("[NOPSPEMUDRM_USER] == rif information ==\n");
+	log("[NOPSPEMUDRM_USER] rif->version %x\n", rif->version);
+	log("[NOPSPEMUDRM_USER] rif->versionFlag %x\n", rif->versionFlag);
+	log("[NOPSPEMUDRM_USER] rif->licenseType %x\n", rif->licenseType);
+	log("[NOPSPEMUDRM_USER] rif->drmType %x\n", rif->drmType);
+	log("[NOPSPEMUDRM_USER] rif->accountId %llx\n", rif->accountId);
+	log("[NOPSPEMUDRM_USER] rif->contentId %s\n", rif->contentId);
+	log("[NOPSPEMUDRM_USER] rif->startTime %llx\n", __builtin_bswap64(rif->startTime));
+	log("[NOPSPEMUDRM_USER] rif->endTime %llx\n", __builtin_bswap64(rif->endTime));
 	
 	// check the console is activated
 	if(officalRif && !isActivated) {
+		log("[NOPSPEMUDRM_USER] (officalRif && !isActivated) check failed.\n");
 		return invalidState;
 	}
 	
 	// check the rif is for this account
 	if(rif->accountId != accountId) { 
+		log("[NOPSPEMUDRM_USER] (rif->accountId != accountId) check failed.\n");
 		return invalidState;
 	}
 
 	// check the rif contentid matches
 	if(strcmp(expectedContentId, rif->contentId) != 0) {
+		log("[NOPSPEMUDRM_USER] (strcmp(expectedContentId, rif->contentId) != 0) check failed.\n");
 		return invalidState;
 	}
 	
 	// check versionFlag matches npdrm activation status
 	if(!officalRif && rif->versionFlag != __builtin_bswap16(isActivated)) {
+		log("[NOPSPEMUDRM_USER] (!officalRif && rif->versionFlag != __builtin_bswap16(isActivated)) check failed.\n");
 		return invalidState;
 	}
 	
 	// check rif start time
-	if(rif->startTime != 0 && rtcTick.tick < rif->startTime) {
+	if(rif->startTime != 0 && rtcTick.tick < __builtin_bswap64(rif->startTime)) {
+		log("[NOPSPEMUDRM_USER] (rif->endTime != 0 && rtcTick.tick > __builtin_bswap64(rif->endTime)) check failed.\n");
 		return invalidState;
 	}
 
 	// check rif end time
-	if(rif->endTime != 0 && rtcTick.tick > rif->endTime) {
+	if(rif->endTime != 0 && rtcTick.tick > __builtin_bswap64(rif->endTime)) {
+		log("[NOPSPEMUDRM_USER] (rif->endTime != 0 && rtcTick.tick > __builtin_bswap64(rif->endTime)) check failed.\n");
 		return invalidState;
 	}
 
@@ -182,6 +206,7 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 		if(rif->encKey2[i] != 0x00) return VALID_RIF;
 	}
 	
+	log("[NOPSPEMUDRM_USER] encKey2 check failed.\n");
 	return invalidState;
 }
 
@@ -297,7 +322,7 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	if(!search_games("ms0:/PSP/GAME", contentId, versionkey)) {
 		return;
 	}
-		
+	
 	// determine a random key from act.dat to use.
 	int keyId = (int)(random_uint() % 0x80);
 	
