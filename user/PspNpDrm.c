@@ -145,7 +145,7 @@ int get_rif_state(PspRif* rif, char* expectedContentId){
 	// get current secure tick
 	SceRtcTick rtcTick;
 	memset(&rtcTick, 0x00, sizeof(SceRtcTick));
-	sceCompatGetCurrentSecureTick(&rtcTick) >= 0;
+	sceCompatGetCurrentSecureTick(&rtcTick);
 	
 	log("[NOPSPEMUDRM_USER] == console information ==\n");
 	log("[NOPSPEMUDRM_USER] secure tick %llx\n", rtcTick.tick);
