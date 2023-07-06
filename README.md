@@ -59,10 +59,15 @@ So PKGJ support for it should be availible soon
 # Note:
 - this is not an eCFW and will not work with PSX2PSP or Homebrew applications - only official content. ( chovy-sign / sign_np will work though )
 
-- First time startup of a game may take longer than later runs as it has to find the games decryption key, however it is cached after that and will be faster
+- First time startup of a game may take longer than later runs as it has to find the games decryption key, however it is cached and will be faster
 
-- PSP EBOOT.PBP games dont work in adrenaline by default because adrenaline do not patch npumd drm.
-(can be fixed with npdrm_free psp plugin by qwikrazor however.)
+- Game manual will only work after first time run in some games as it looks for the cached keys ..
+
+- Aderenaline compatibility: 
+PSP EBOOT.PBP games dont work in adrenaline by default because adrenaline does not patch npumdimg drm. (psx games should work fine however)
+..
+so to be able to use psp EBOOT games with adrenaline youll need to install the [npdrm_free](https://github.com/qwikrazor87/npdrm_free) psp plugin by qwikrazor.
+
 
 # Credits:
 
@@ -75,3 +80,4 @@ SquallATF  - Wrote alot of the Chovy-Sign2/PspCrypto code that this is heavily b
 TheFlow    - Original NoNpDrm code- NoPspEmuDrm_kern is fork of NoNpDrm.
              and for the original Adrenaline v3.00, which i think i copied like 1 function from
 			 which was for reading/writing to PspEmu memory,
+ pla
