@@ -67,7 +67,8 @@ So PKGJ support for it should be availible soon
 PSP EBOOT.PBP games dont work in adrenaline by default because adrenaline does not patch npumdimg drm. (psx games should work fine however)
 ..
 so to be able to use psp EBOOT games with adrenaline youll need to install the [npdrm_free](https://github.com/qwikrazor87/npdrm_free) psp plugin by qwikrazor.
-
+..
+this is not needed if you dont use adrenaline
 
 # Credits:
 
