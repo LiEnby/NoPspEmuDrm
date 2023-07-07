@@ -37,25 +37,24 @@ ur0:/tai/NoPspEmuDrm_user.suprx
 # Installation of PSP Games:
 Copy digital PSP/GAME folder to ux0:/pspemu/PSP/GAME
 
-( if you use pkgj version v0.55 you need to add `install_psp_as_pbp 1` to the config.txt )
-( if you use nps browser with PKG2ZIP v2.3 or older; you need to add `-p` argument to the pkg2zip parameters )
+--
+There is now a beta build of PKGJ that supports background downoload of PSPEmu contents 
 
+https://github.com/blastrock/pkgj/releases/tag/v0.56-beta3
+
+Please let us know if you have any issues with this !
 -- 
-Currently, neither VitaShell or PKGJ support "Promoting" PSP games
+Currently, VitaShell not support "Promoting" PSP games
 
 However i have a fork of VitaShell that adds this in:
 
 https://github.com/KuromeSan/VitaShell/releases
 
 and on the main screen click triangle, press "refresh livearea"
-
 --
-I also got background downloading working; using our original bgdl proof of concept;
-
-https://github.com/KuromeSan/bgdl_nopspemudrm_poc
-
-So PKGJ support for it should be availible soon
-
+( if you use pkgj version v0.55 you need to add `install_psp_as_pbp 1` to the config.txt )
+( if you use nps browser with PKG2ZIP v2.3 or older; you need to add `-p` argument to the pkg2zip parameters )
+--
 # Note:
 - this is not an eCFW and will not work with PSX2PSP or Homebrew applications - only official content. ( chovy-sign / sign_np will work though )
 
