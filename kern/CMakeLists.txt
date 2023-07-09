@@ -16,6 +16,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 
 add_executable(NoPspEmuDrm_kern
   Main.c
+  EcPatch.c
+  RifPatch.c
+  CompatPatch.c
+  EbootSigPatch.c
 )
 
 target_link_libraries(NoPspEmuDrm_kern

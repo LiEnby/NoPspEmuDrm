@@ -3,7 +3,7 @@
 #define PSP_LOG_H 1
 
 #ifdef LOGGING_ENABLED
-#define log(...) sceClibPrintf(__VA_ARGS__ )
+#define log(...) ksceKernelPrintf(__VA_ARGS__ )
 #else
 #define log(...) /* nothing */
 #endif

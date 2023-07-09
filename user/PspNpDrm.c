@@ -99,6 +99,8 @@ int get_activation_data(PspAct* act) {
 
 void gen_enc_key1(char* encKey1_out, int keyId){
 	char encKey1[0x10];
+	log("[NOPSPEMUDRM_USER] Using activation key id: %x\n", keyId);
+
 	sceUtilsBufferCopyWithRange(encKey1, 0x10, NULL, 0, KIRK_CMD_PRNG);
 	*(uint32_t*)(encKey1+0xC) = __builtin_bswap32(keyId);
 	
@@ -112,12 +114,13 @@ void gen_enc_key2(char* encKey2_out, char* versionKey, int keyId){
 
 	PspAct* act = malloc(sizeof(PspAct));
 	memset(act, 0x00, sizeof(PspAct));
+
 	
 	get_activation_data(act);
 	
 	char actKey[0x10];
 	get_act_key(actKey, act->primKeyTable[keyId], 1);
-	
+
 	char encKey2[0x10];
 	aes_encrypt_out(encKey2, versionKey, actKey);
 	

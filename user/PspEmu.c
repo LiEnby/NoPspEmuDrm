@@ -57,6 +57,7 @@ void nop_func(uintptr_t addr){
 	ScePspemuWritebackCache(opcode, 0x8);
 }
 
+
 int check_npdrm_key_addr(int addr) {
 	if(addr == 0) {
 		log("[NOPSPEMUDRM_USER] npdrm_key_addr is nullptr\n", addr);
@@ -197,7 +198,7 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 		
 	sceIoOpenHook = taiHookFunctionImport(&sceIoOpenRef, "ScePspemu", 0xCAE9ACE6, 0x6C60AC61, sceIoOpenPatched);
 	sceIoGetstatHook = taiHookFunctionImport(&sceIoGetstatRef, "ScePspemu", 0xCAE9ACE6, 0xBCA5B623, sceIoGetstatPatched);
-	
+											  
 	return SCE_KERNEL_START_SUCCESS;
 }
 
