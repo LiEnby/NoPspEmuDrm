@@ -21,7 +21,7 @@ Features:
 
 - Force \_\_sce\_ebootpbp signature file validation success (means- psp bubbles wont be thanos snapped out of existance upon downgrading or changing accounts)
 
-- Can use any Multi Disc EBOOT.PBP on your vita, even if they are not within \_\_sce\_discinfo. 
+- Can use any Multi Disc game on your vita, even if they are not within \_\_sce\_discinfo. 
 # Installation:
 The plugin consists of two parts; a kernel plugin and a user plugin;
 both need to be installed for it to work correctly;
