@@ -1,6 +1,7 @@
 #include "Io.h"
 #include "Pbp.h"
 #include "PspNpDrm.h"
+#include "Log.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -80,21 +81,20 @@ int read_pbp_key(char* file, char* contentId, char* key){
 	sceIoRead(fd, &pbpHdr, sizeof(PbpHdr));
 	
 	// check magic is PBP magic
-	if(memcmp(pbpHdr.magic, "\0PBP", sizeof(pbpHdr.magic)) == 0){
+	if(memcmp(pbpHdr.magic, "\0PBP", sizeof(pbpHdr.magic)) == 0) {
 		// calculate data.psar size based on pbp size - data psar size
-		int dataPsarSz = pbpSz - pbpHdr.data_psar;
-		
+		size_t dataPsarSz = pbpSz - pbpHdr.data_psar;
 		// if the data.psar size is greater than 0 -- there IS a data.psar in this eboot
-		if(dataPsarSz > 0){
+		if(dataPsarSz > 0) {
 			// read the first 8 bytes of data.psar to determine eboot type
 			char head[0x10];
 			memset(head, 0x00, sizeof(head));
 			
 			sceIoLseek(fd, pbpHdr.data_psar, SCE_SEEK_SET);
-			int readSz = sceIoRead(fd, head, 0x8);
+			size_t readSz = sceIoRead(fd, head, 0x8);
 			if(readSz == 0x8) {
 				// check if its a NPUMDIMG -- a psp game
-				if(strcmp("NPUMDIMG", head) == 0){
+				if(strcmp("NPUMDIMG", head) == 0) {
 					sceIoLseek(fd, pbpHdr.data_psar, SCE_SEEK_SET);
 					
 					NpUmdHdr npUmdHdr;
@@ -103,14 +103,12 @@ int read_pbp_key(char* file, char* contentId, char* key){
 					// check read size is npumdhdr size
 					if(readSz == sizeof(NpUmdHdr)) {
 						// check the content id matches the one were searching for.
-						if(strcmp(contentId, npUmdHdr.content_id) == 0){
-							// extract key
-							ret = sceNpDrmCalcNpUmdKey(&npUmdHdr, key);
-						}
+						if(strcmp(contentId, npUmdHdr.content_id) == 0)
+							ret = sceNpDrmCalcNpUmdKey(&npUmdHdr, key); // extract key
 					}
 				}
 				// check if its a PSISOIMG ro PSTITLEIMG -- a PS1 game
-				else if((strcmp("PSISOIMG", head) == 0 || strcmp("PSTITLEI", head) == 0)){
+				else if((strcmp("PSISOIMG", head) == 0 || strcmp("PSTITLEI", head) == 0)) {
 					NpDataPsp npDataPsp;
 					
 					sceIoLseek(fd, pbpHdr.data_psp, SCE_SEEK_SET);
@@ -136,16 +134,25 @@ int read_pbp_key(char* file, char* contentId, char* key){
 							sceIoRead(fd, &npPgd, sizeof(NpPgd));
 							
 							// check magic is "PGD"
-							if(memcmp(npPgd.magic, "\0PGD", 0x4) == 0) {
-								
-								// extract the key
-								ret = sceNpDrmCalcPgdKey(&npPgd, key);
-							}
+							if(memcmp(npPgd.magic, "\0PGD", 0x4) == 0) 
+								ret = sceNpDrmCalcPgdKey(&npPgd, key); // extract key
 						}
 					}
 				}
+				else {
+					log("[NOPSPEMUDRM_USER] unknown eboot type! psar header was invalid. (file: %s)\n", file);
+				}
+			}
+			else {
+				log("[NOPSPEMUDRM_USER] read size check failed got: %x  - (file: %s)\n", readSz, file);
 			}
 		}
+		else {
+			log("[NOPSPEMUDRM_USER] data.psar size is %x which is < 0  - (file: %s)\n", dataPsarSz, file);
+		}
+	}
+	else {
+		log("[NOPSPEMUDRM_USER] PBP Header was not \"\\0PBP\" - (file: %s)\n", file);
 	}
 	
 	sceIoClose(fd);

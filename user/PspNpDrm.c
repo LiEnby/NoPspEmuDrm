@@ -323,11 +323,15 @@ void sceNpDrmGenerateRif(char* contentId, const char* path) {
 	
 	// get version key
 	if(!search_games("ms0:/PSP/GAME", contentId, versionkey)) {
+		log("[NOPSPEMUDRM_USER] Failed to find versionkey for %s\n", contentId);
 		return;
 	}
+	log("[NOPSPEMUDRM_USER] versionKey: ");
+	logBuf(versionkey, sizeof(versionkey));
 	
 	// determine a random key from act.dat to use.
 	int keyId = (int)(random_uint() % 0x80);
+	log("[NOPSPEMUDRM_USER] keyId: %x\n", keyId);
 	
 	/*
 	*	GENERATE THE RIF
