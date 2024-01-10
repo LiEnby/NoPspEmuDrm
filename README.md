@@ -39,7 +39,7 @@ ur0:/tai/NoPspEmuDrm_user.suprx
 
 ----
 
-There is now a beta build of PKGJ that supports background downoload of PSPEmu contents 
+There is now a build of PKGJ that supports background downoload of PSPEmu contents 
 
 https://github.com/blastrock/pkgj/releases/tag/v0.57
 
