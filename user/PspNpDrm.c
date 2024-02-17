@@ -14,6 +14,18 @@
 
 #include <vitasdk.h>
 
+
+int get_real_console_id(char* console_id_out) {
+	// workaround console id spoofers; read IDPS from idstorage
+	
+	char idstorage_leaf[0x200];
+	int ret = vshIdStorageReadLeaf(0x01, idstorage_leaf);
+	if(ret < 0) return ret;
+	memcpy(console_id_out, idstorage_leaf + 0x60, 0x10);
+
+	return 0;
+}
+
 int is_offical_rif(PspRif* rif){
 	for(int i = 0; i < 0x28; i++) {
 		if(rif->ecdsaSig[i] != 0xff) {
@@ -70,13 +82,10 @@ int gen_versionkey(char* versionkey, int keyindex)
 
 void get_act_key(char* key_out, char* encrypted_act_key, int count){
 	char decKey[0x10];
-	char idps[32];
+	char idps[0x10];
 	
-	// get idps
-	_vshSblAimgrGetConsoleId(idps);
-	
+	get_real_console_id(idps);
 	aes_encrypt_out(decKey, PSP_ACT_AES, idps);
-	
 	
 	for (int i = 0; i < count; i++){
 		aes_decrypt_out(key_out, encrypted_act_key, decKey);

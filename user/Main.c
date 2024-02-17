@@ -24,18 +24,14 @@ int module_start(SceSize args, void *argp) {
 	ret = taiGetModuleInfo("ScePspemu", &tai_info);
 	if (ret >= 0){
 		pspemu = 1;
-		//sceClibPrintf("[NoPspEmuDrm_user] starting in pspemu\n");
 		return pspemu_module_start(tai_info);
 	}
 	
 	ret = taiGetModuleInfo("SceShell", &tai_info);
 	if (ret >= 0){
 		sceshell = 1;
-		//sceClibPrintf("[NoPspEmuDrm_user] starting in sceshell\n");
 		return sceshell_module_start(tai_info);
 	}
-
-	//sceClibPrintf("[NoPspEmuDrm_user] exiting (not pspemu or shell)\n");
 	
 	
 	return SCE_KERNEL_START_NO_RESIDENT;
