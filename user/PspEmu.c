@@ -32,6 +32,7 @@
 #include "Log.h"
 #include "PspEmu.h"
 #include "PspNpDrm.h"
+#include "Io.h"
 
 #define IS_RIF_PATH(x) (strncmp(x, "ms0:PSP/LICENSE/", 16) == 0 || strncmp(x, "ms0:/PSP/LICENSE/", 17) == 0)
 
@@ -45,6 +46,7 @@ static tai_hook_ref_t sceIoOpenRef;
 static tai_hook_ref_t sceIoGetstatRef;
 
 static uint32_t npdrm_key_addr = 0;
+static char last_opened_drm_file[0x1028];
 
 void get_functions(uint32_t text_addr) {
 	ScePspemuConvertAddress = (void *)text_addr + 0x6364 + 0x1;
@@ -116,8 +118,18 @@ void patch_npdrm_prx(){
 		npdrm_key_addr = find_npdrm_key(); // 0x880ef7c1
 	}
 	
-	nop_func(npdrm_key_addr - 0x33D8); // 0x880ec3e8 => sceNpDrmVerifyRif
-	nop_func(npdrm_key_addr - 0x3340); // 0x880ec480 => sceNpDrmVerifyAct
+	uintptr_t sceNpDrmVerifyRif_addr = (npdrm_key_addr - 0x33D8); // 0x880ec3e8 => sceNpDrmVerifyRif
+	uintptr_t sceNpDrmVerifyAct_addr = (npdrm_key_addr - 0x3340); // 0x880ec480 => sceNpDrmVerifyAct
+
+	log("[NOPSPEMUDRM_USER] == Patching NpDrm in PspEmu ==\n");
+	
+	log("[NOPSPEMUDRM_USER] npdrm_key_addr: %p\n", npdrm_key_addr);
+	log("[NOPSPEMUDRM_USER] sceNpDrmVerifyRif: %p\n", sceNpDrmVerifyRif_addr);
+	log("[NOPSPEMUDRM_USER] sceNpDrmVerifyAct: %p\n", sceNpDrmVerifyAct_addr);
+
+	
+	nop_func(sceNpDrmVerifyRif_addr); 
+	nop_func(sceNpDrmVerifyAct_addr); 
 }
 
 void handle_rif(const char** file){
@@ -143,7 +155,7 @@ void handle_rif(const char** file){
 								   // as do not want to overwrite any legitimate rif files
 		log("[NOPSPEMUDRM_USER] invalid rif, state is OFFICAL_INVALID\n");
 		sceIoMkdir("ux0:/temp/pspemu", 0777);
-		sceNpDrmGenerateRif(contentId, nodrm_rif);
+		sceNpDrmGenerateRif(contentId, nodrm_rif, last_opened_drm_file);
 		*file = nodrm_rif;
 	}
 	
@@ -152,15 +164,14 @@ void handle_rif(const char** file){
 									   // because it is not an offical rif.
 		log("[NOPSPEMUDRM_USER] invalid rif, state is NOPSPEMUDRM_INVALID\n");
 		sceIoMkdir("ms0:/PSP/LICENSE", 0777);
-		sceNpDrmGenerateRif(contentId, *file);		
+		sceNpDrmGenerateRif(contentId, *file, last_opened_drm_file);		
 	}
 }
 
 // popscore stats license, its very rude
 static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 	int ret = TAI_CONTINUE(SceUID, sceIoGetstatRef, file, stat);	
-	
-	if( file != NULL && (ret < 0 && IS_RIF_PATH(file))) {
+	if( file != NULL && (ret < 0 && IS_RIF_PATH(file)) ) {
 		log("[NOPSPEMUDRM_USER] rif_getstat: %s %x\n", file, stat);
 		// fake it existing
 		memset(stat, 0x00, sizeof(SceIoStat));
@@ -174,11 +185,21 @@ static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 }
 
 static SceUID sceIoOpenPatched(const char *file, int flags, SceMode mode) {
-	
-	if(file != NULL && IS_RIF_PATH(file)){
-		log("[NOPSPEMUDRM_USER] rif_open: %s %x %x\n", file, flags, mode);
-		handle_rif(&file);
+	char extension[0x10];
+
+	if(file != NULL) {
+		GetExtension(file, extension, sizeof(extension));
+		if( (strcasecmp(extension, ".EDAT") == 0) || 
+			 strcasecmp(extension, ".PBP") == 0 ) {
+			log("[NOPSPEMUDRM_USER] edat_or_pbp_open: %s %x %x\n", file, flags, mode);
+			strncpy(last_opened_drm_file, file, sizeof(last_opened_drm_file));
+		}
+		if(file != NULL && IS_RIF_PATH(file)){
+			log("[NOPSPEMUDRM_USER] rif_open: %s %x %x\n", file, flags, mode);
+			handle_rif(&file);
+		}	
 	}
+
 	
 	return TAI_CONTINUE(SceUID, sceIoOpenRef, file, flags, mode);
 }
@@ -193,6 +214,8 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 	
 	// Get PspEmu functions
 	get_functions((uint32_t)mod_info.segments[0].vaddr);
+	
+	memset(last_opened_drm_file, 0x00, sizeof(last_opened_drm_file));
 
 	kirk_init();
 		

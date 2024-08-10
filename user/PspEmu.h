@@ -25,7 +25,6 @@
 extern int (* ScePspemuConvertAddress)(uint32_t addr, int mode, uint32_t cache_size);
 extern int (* ScePspemuWritebackCache)(void *addr, int size);
 
-
 int pspemu_module_start(tai_module_info_t tai_info);
 int pspemu_module_stop();
 

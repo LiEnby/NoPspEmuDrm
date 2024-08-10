@@ -323,15 +323,17 @@ PspRifState sceNpDrmCheckRifState(char* contentId, const char* path) {
 }
 
 
-void sceNpDrmGenerateRif(char* contentId, const char* path) {
+void sceNpDrmGenerateRif(char* contentId, const char* path, char* last_opened_drm_file) {
 	PspRif* rif = malloc(sizeof(PspRif));
 	memset(rif, 0x00, sizeof(PspRif));
 	
 	uint8_t versionkey[0x10];
 	memset(versionkey, 0xFF, 0x10);
 	
-	// get version key
-	if(!search_games("ms0:/PSP/GAME", contentId, versionkey)) {
+
+	// try find versionkey
+	if(check_file(last_opened_drm_file, contentId, versionkey)) { log("[NOPSPEMUDRM_USER] Read versionkey from last drm file (%s)\n", last_opened_drm_file); } // speedup in most cases - check last opened PBP/EDAT file
+	else if(!search_games("ms0:/PSP/GAME", contentId, versionkey)) {     // if that fails, scan the entire /PSP/GAME for this content id
 		log("[NOPSPEMUDRM_USER] Failed to find versionkey for %s\n", contentId);
 		return;
 	}

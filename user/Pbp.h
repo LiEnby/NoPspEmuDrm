@@ -18,6 +18,7 @@ typedef struct PbpHdr
 
 } __attribute__((packed)) PbpHdr;
 
+int check_file(char* file, char* contentId, char* key);
 int search_games(char* dir_path, char* contentId, char* key);
 
 #endif

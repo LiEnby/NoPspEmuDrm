@@ -142,7 +142,7 @@ int sceNpDrmCalcPgdKey(NpPgd* pgd, char* versionkey);
 int sceNpDrmCalcNpUmdKey(NpUmdHdr* hdr, char* versionkey);
 int sceNpDrmCalcEdatKey(NpPspEdat* edat, NpPgd* pgd, char* versionkey);
 
-void sceNpDrmGenerateRif(char* contentId, const char* path);
+void sceNpDrmGenerateRif(char* contentId, const char* path, char* last_opened_drm_file);
 int sceNpDrmTransformVersionKey(char* versionKey, int srcKeyType, int dstKeyType);
 PspRifState sceNpDrmCheckRifState(char* contentId, const char* path);
 

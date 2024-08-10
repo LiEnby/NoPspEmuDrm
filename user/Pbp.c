@@ -10,34 +10,15 @@
 #include <vitasdk.h>
 
 
-void get_extension(char* filename, char* ext){
-	memset(ext, 0x00, 0x10);
-	int cpy = 0;
-	
-	for(int i = 0; ; i++){
-		if(filename[i] == '.') cpy = i;
-		if(filename[i] == '\0') break;
-	}
-	
-	if(cpy == 0) return;
-	
-	strncpy(ext, filename+cpy, 0x9);
-	
-	for(int i = 0; i < 0x10; i++)
-		ext[i] = toupper(ext[i]);
-}
-
 
 int read_edat_key(char* file, char* contentId, char* key){
 	NpPspEdat pspEdat;
-	
+	int ret = 0;
+
 	// check the edat is atleast the size of an edat header
 	size_t edatSz = GetFileSize(file);
-	if(edatSz < sizeof(NpPspEdat))
-		return 0;	
-	
-	int ret = 0;
-	
+	if(edatSz < sizeof(NpPspEdat)) return 0;	
+		
 	// read the edat header
 	SceUID fd = sceIoOpen(file, SCE_O_RDONLY, 0777);
 	if(fd < 0) return 0;
@@ -69,17 +50,20 @@ int read_edat_key(char* file, char* contentId, char* key){
 
 int read_pbp_key(char* file, char* contentId, char* key){	
 	PbpHdr pbpHdr;
+	int ret = 0;
 	
 	// check pbp sz is atleast the size of a pbp header
 	size_t pbpSz = GetFileSize(file);
-	if(pbpSz < sizeof(PbpHdr)) {
-		return 0;
-	}
+	if(pbpSz < sizeof(PbpHdr)) return 0;
+
+	// check file was opened successfully.	
+	SceUID fd = sceIoOpen(file, SCE_O_RDONLY, 0777);
+	if(fd < 0) return 0;
 	
-	int ret = 0;
-	SceUID fd = sceIoOpen(file, SCE_O_RDONLY, 0777);	
-	sceIoRead(fd, &pbpHdr, sizeof(PbpHdr));
-	
+	// check total data read is > PbpHdr size.
+	size_t readSz = sceIoRead(fd, &pbpHdr, sizeof(PbpHdr));
+	if(readSz < sizeof(PbpHdr)) return 0;
+		
 	// check magic is PBP magic
 	if(memcmp(pbpHdr.magic, "\0PBP", sizeof(pbpHdr.magic)) == 0) {
 		// calculate data.psar size based on pbp size - data psar size
@@ -91,7 +75,7 @@ int read_pbp_key(char* file, char* contentId, char* key){
 			memset(head, 0x00, sizeof(head));
 			
 			sceIoLseek(fd, pbpHdr.data_psar, SCE_SEEK_SET);
-			size_t readSz = sceIoRead(fd, head, 0x8);
+			readSz = sceIoRead(fd, head, 0x8);
 			if(readSz == 0x8) {
 				// check if its a NPUMDIMG -- a psp game
 				if(strcmp("NPUMDIMG", head) == 0) {
@@ -107,7 +91,7 @@ int read_pbp_key(char* file, char* contentId, char* key){
 							ret = sceNpDrmCalcNpUmdKey(&npUmdHdr, key); // extract key
 					}
 				}
-				// check if its a PSISOIMG ro PSTITLEIMG -- a PS1 game
+				// check if its a PSISOIMG or PSTITLEIMG -- a PS1 game
 				else if((strcmp("PSISOIMG", head) == 0 || strcmp("PSTITLEI", head) == 0)) {
 					NpDataPsp npDataPsp;
 					
@@ -159,9 +143,9 @@ int read_pbp_key(char* file, char* contentId, char* key){
 	return ret;
 }
 
-int check_file(char* file, char* contentId, char* key){
+int check_file(char* file, char* contentId, char* key) {
 	char extension[0x10];
-	get_extension(file, extension);
+	GetExtension(file, extension, sizeof(extension));
 
 	if(strcmp(extension, ".PBP") == 0){
 		return read_pbp_key(file, contentId, key);
@@ -175,7 +159,6 @@ int check_file(char* file, char* contentId, char* key){
 }
 
 int search_games(char* dir_path, char* contentId, char* key){
-	//const char* pspGameFolder = "ms0:/PSP/GAME";
 	SceUID dfd = sceIoDopen(dir_path);	
 	char* subEnt = malloc(MAX_PATH);
 	memset(subEnt, 0x00, MAX_PATH);
