@@ -25,32 +25,22 @@ Features:
 
 # Comparison to Adrenaline
 Adrenaline is an eCFW and basically boots an entire PSP 6.61 Custom Firmware to play games.
-
 it can do almost everything a CFW PSP could do. including play games from ISO's use translation patches.
-
 load plugins. and everything else. *BUT* as a result it kind of doesn't intergrate well with the rest of the vita OS
-
 games in adrenaline are not recognized by Content Manager. leading to the infamous "system use"..
-
-Cannot be background downloaded by pkgj, or anything.
-
-and niche features such as pocketstation intergration with PS1 games, don't work.
+Cannot be background downloaded by pkgj, or anything. and niche features such as pocketstation intergration with PS1 games, don't work.
 
 
 if you want to create icons on your livearea you have to do so with sort of 'forwarders'
-
 that just start adrenaline- and then start whatever game you want.
 
 .. 
 
 NoPspEmuDrm on the other hand; works *exactly* as if you downloaded a PlayStation Portable or PlayStation One Classics game from the PlayStation Store
-
 which means that pretty much all of what i just said, works flawlessly, games *can* be background downloaded, *do* intergrate with the rest of the OS ..
-
 DO show up in content manager, etc. 
 
 BUT- that's kind of also its biggest downside.
-
 because this ALSO means it has all the same limitations as offical psn PSP/PSX games
 
 - cannot load any PSP-mode plugins, overclocking, custom ISO's homebrew, anything unsigned.
