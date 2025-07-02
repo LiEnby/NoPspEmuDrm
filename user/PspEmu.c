@@ -41,6 +41,7 @@ int (* ScePspemuWritebackCache)(void *addr, int size);
 
 static SceUID sceIoOpenHook;
 static SceUID sceIoGetstatHook;
+static SceUID ram_patches[3];
 
 static tai_hook_ref_t sceIoOpenRef;
 static tai_hook_ref_t sceIoGetstatRef;
@@ -221,13 +222,27 @@ int pspemu_module_start(tai_module_info_t tai_info) {
 		
 	sceIoOpenHook = taiHookFunctionImport(&sceIoOpenRef, "ScePspemu", 0xCAE9ACE6, 0x6C60AC61, sceIoOpenPatched);
 	sceIoGetstatHook = taiHookFunctionImport(&sceIoGetstatRef, "ScePspemu", 0xCAE9ACE6, 0xBCA5B623, sceIoGetstatPatched);
-											  
+
+	// Adjust RAM size the way adrenaline did
+	uint32_t cmp_a4_3C00000 = 0x7F70F1B3;
+	ram_patches[0] = taiInjectData(tai_info.modid, 0, 0x6394, &cmp_a4_3C00000, sizeof(cmp_a4_3C00000));
+
+	uint32_t cmp_v2_3C00000 = 0x7F70F1B5;
+	ram_patches[1] = taiInjectData(tai_info.modid, 0, 0x6434, &cmp_v2_3C00000, sizeof(cmp_v2_3C00000));
+
+	uint32_t cmp_a3_3C00000 = 0x7F70F1B2;
+	ram_patches[2] = taiInjectData(tai_info.modid, 0, 0x6534, &cmp_a3_3C00000, sizeof(cmp_a3_3C00000));
+
 	return SCE_KERNEL_START_SUCCESS;
 }
 
 int pspemu_module_stop() {
 	if(sceIoOpenHook >= 0) taiHookRelease(sceIoOpenHook, sceIoOpenRef);
 	if(sceIoGetstatHook >= 0) taiHookRelease(sceIoGetstatHook, sceIoGetstatRef);
+
+	for (int i = 0;i < 3;i++){
+		taiInjectRelease(ram_patches[i]);
+	}
 	
 	return SCE_KERNEL_STOP_SUCCESS;
 }

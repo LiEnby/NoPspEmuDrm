@@ -31,6 +31,7 @@ target_link_libraries(NoPspEmuDrm_kern
   SceSysclibForDriver_stub
   SceDebugForDriver_stub
   SceThreadmgrForDriver_stub
+  SceSysmemForDriver_stub
 )
 
 vita_create_self(NoPspEmuDrm_kern.skprx NoPspEmuDrm_kern CONFIG exports.yml UNSAFE)
