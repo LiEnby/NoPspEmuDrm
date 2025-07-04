@@ -20,6 +20,7 @@ add_executable(NoPspEmuDrm_kern
   RifPatch.c
   CompatPatch.c
   EbootSigPatch.c
+  HighMem.c
 )
 
 target_link_libraries(NoPspEmuDrm_kern
