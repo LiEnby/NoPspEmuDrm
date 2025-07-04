@@ -29,6 +29,7 @@
 #include "RifPatch.h"
 #include "CompatPatch.h"
 #include "EbootSigPatch.h"
+#include "HighMem.h"
 
 void _start() __attribute__ ((weak, alias("module_start")));
 int module_start(SceSize args, void *argp) {	
@@ -41,6 +42,8 @@ int module_start(SceSize args, void *argp) {
 	init_compat_patch();
 	// Patch rif and act.dat signature checks, so the vita thinks our licenses are *LEGIT* -- makes manual work
 	init_ec_patch();
+	// Enable extra PSP memory
+	init_highmem();
 	
 	return SCE_KERNEL_START_SUCCESS;
 }
@@ -51,6 +54,7 @@ int module_stop(SceSize args, void *argp) {
 	term_eboot_sig_patch();
 	term_compat_patch();
 	term_ec_patch();
-		
+	term_highmem();
+
 	return SCE_KERNEL_STOP_SUCCESS;
 }
