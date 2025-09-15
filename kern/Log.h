@@ -1,4 +1,3 @@
-#include "../Config.h"
 #ifndef PSP_LOG_H
 #define PSP_LOG_H 1
 

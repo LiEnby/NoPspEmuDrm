@@ -2,3 +2,4 @@
 *.skprx
 kern/build/*
 user/build/*
+build/*

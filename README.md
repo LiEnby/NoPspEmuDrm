@@ -116,4 +116,17 @@ SquallATF  - Wrote alot of the Chovy-Sign2/PspCrypto code that this is heavily b
 TheFlow    - Original NoNpDrm code- NoPspEmuDrm_kern is fork of NoNpDrm.
              and for the original Adrenaline v3.00, which i think i copied like 1 function from
 			 which was for reading/writing to PspEmu memory,
- pla
+
+
+# Building
+
+to build the plugin using VitaSDK just run:
+
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+you can also build it with debug logging enabled by passing ```-DCMAKE_BUILD_TYPE=DEBUG``` to the cmake command.

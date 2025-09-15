@@ -11,11 +11,13 @@ endif()
 project(NoPspEmuDrm_user)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -O3 -std=gnu99")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -std=gnu99")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fno-rtti -fno-exceptions")
 
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -DLOGGING_ENABLED=1")
 
-add_executable(NoPspEmuDrm_user
+add_executable(${PROJECT_NAME}
 	crypto/aes.c
 	crypto/amctrl.c
 	crypto/bn.c
@@ -33,8 +35,8 @@ add_executable(NoPspEmuDrm_user
 	Main.c
 )
 
-target_link_libraries(NoPspEmuDrm_user
-	taiHEN_stub
+target_link_libraries(${PROJECT_NAME}
+	taihen_stub
 	SceLibKernel_stub
 	SceCompat_stub
 	SceLibc_stub_weak
@@ -48,11 +50,12 @@ target_link_libraries(NoPspEmuDrm_user
 	SceVshBridge_stub
 )
 
-
-
-set_target_properties(NoPspEmuDrm_user
+set_target_properties(${PROJECT_NAME}
   PROPERTIES LINK_FLAGS "-nostdlib"
 )
 
-vita_create_self(NoPspEmuDrm_user.suprx NoPspEmuDrm_user CONFIG exports.yml UNSAFE)
-vita_create_stubs(stubs NoPspEmuDrm_user ${CMAKE_SOURCE_DIR}/exports.yml)
+vita_create_self(${PROJECT_NAME}.suprx ${PROJECT_NAME}
+  UNSAFE
+  CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.yml
+)
+vita_create_stubs(${PROJECT_NAME}-stubs ${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.yml)

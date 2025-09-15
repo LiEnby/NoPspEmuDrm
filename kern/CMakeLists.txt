@@ -14,7 +14,10 @@ include("${VITASDK}/share/vita.cmake" REQUIRED)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -Wall -O3 -nostdlib")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
 
-add_executable(NoPspEmuDrm_kern
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -DLOGGING_ENABLED=1")
+
+add_executable(${PROJECT_NAME}
   Main.c
   EcPatch.c
   RifPatch.c
@@ -22,7 +25,7 @@ add_executable(NoPspEmuDrm_kern
   EbootSigPatch.c
 )
 
-target_link_libraries(NoPspEmuDrm_kern
+target_link_libraries(${PROJECT_NAME}
   taihenForKernel_stub
   SceIofilemgrForDriver_stub
   SceNpDrmForDriver_stub
@@ -33,4 +36,10 @@ target_link_libraries(NoPspEmuDrm_kern
   SceThreadmgrForDriver_stub
 )
 
-vita_create_self(NoPspEmuDrm_kern.skprx NoPspEmuDrm_kern CONFIG exports.yml UNSAFE)
+vita_create_self(${PROJECT_NAME}.skprx ${PROJECT_NAME}
+  UNSAFE
+  CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.yml
+)
+vita_create_stubs(${PROJECT_NAME}-stubs ${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.yml
+  KERNEL
+)
