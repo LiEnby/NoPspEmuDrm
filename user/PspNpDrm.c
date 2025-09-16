@@ -27,6 +27,13 @@ int get_real_console_id(char* console_id_out) {
 	return 0;
 }
 
+uint64_t get_current_secure_tick() {
+	SceRtcTick rtc_tick;
+	memset(&rtc_tick, 0x00, sizeof(SceRtcTick));
+	sceCompatGetCurrentSecureTick(&rtc_tick);
+	return rtc_tick.tick;
+}
+
 uint64_t get_account_id() {
 	uint64_t account_id = -1;
 	sceRegMgrGetKeyBin("/CONFIG/NP", "account_id", &account_id, sizeof(account_id));
@@ -46,18 +53,49 @@ int is_npdrm_activated() {
 	int act_type = 0;
 	int version_flag = 0;
 	uint64_t account_id = -1;
-	uint64_t expire_date[2];
+	uint64_t effective_date[2];
+	memset(effective_date, 0x00, sizeof(effective_date));
 	
-	memset(expire_date, 0x00, sizeof(expire_date));
-	
-	int ret = _sceNpDrmCheckActData(&act_type, &version_flag, &account_id, expire_date);
+	int ret = _sceNpDrmCheckActData(&act_type, &version_flag, &account_id, effective_date);
 
 	if(ret >= 0) {
-		if(get_account_id() != account_id) return 0;
+		uint64_t current_account_id = get_account_id();
+		uint64_t secure_tick = get_current_secure_tick();
+		
+		uint64_t start_date = effective_date[0];
+		uint64_t end_date = effective_date[1];
+		
+		LOG("[NOPSPEMUDRM_USER] VALIDATING ACT DAT\n");
+		LOG("[NOPSPEMUDRM_USER] === Console Information ===\n");
+		LOG("[NOPSPEMUDRM_USER] account_id: %llx\n", current_account_id);
+		LOG("[NOPSPEMUDRM_USER] secure_tick: %llx\n", secure_tick);
+		
+		LOG("[NOPSPEMUDRM_USER] === ActDat Information ===\n");
+		LOG("[NOPSPEMUDRM_USER] act_type %x\n", act_type);
+		LOG("[NOPSPEMUDRM_USER] version_flag %x\n", version_flag);
+		LOG("[NOPSPEMUDRM_USER] account_id %llx\n", account_id);
+		LOG("[NOPSPEMUDRM_USER] start_date %llx\n", start_date);		
+		LOG("[NOPSPEMUDRM_USER] end_date %llx\n", end_date);
+		
+		
+		if(current_account_id != account_id) {
+			LOG("[NOPSPEMUDRM_USER] failed (current_account_id != account_id) check\n");
+			return 0;
+		}
+		if(start_date != 0 && secure_tick > start_date ) {
+			LOG("[NOPSPEMUDRM_USER] failed (start_date != 0 && secure_tick > start_date) check\n");
+			return 0;	
+		}
+		if(end_date != 0 && secure_tick < end_date) { 
+			LOG("[NOPSPEMUDRM_USER] failed (end_date != 0 && secure_tick < end_date) check\n");
+			return 0;
+		}
+		
 		return 1;
 	}
 	else {
-		return 0;		
+		LOG("[NOPSPEMUDRM_USER] failed _sceNpDrmCheckActData = 0x%x", ret);
+		return 0;
 	}
 }
 
@@ -145,20 +183,14 @@ void generate_encrypted_version_key(char* encrypted_version_key, const char* ver
 	
 	PspAct* act = malloc(sizeof(PspAct));
 	memset(act, 0x00, sizeof(PspAct));
-
-	LOG("[NOPSPEMUDRM_USER] generate_encrypted_version_key\n");
 	
 	// read activation data
-	LOG("[NOPSPEMUDRM_USER] get_activation_data\n");
 	get_activation_data(act);
 
-	// get encryption key from the activation table
-	LOG("[NOPSPEMUDRM_USER] get_act_key\n");
-	
+	// get encryption key from the activation table	
 	char act_key[0x10];
 	get_act_key(act_key, act->primary_key_table[key_id], 1);
 
-	LOG("[NOPSPEMUDRM_USER] aes_encrypt_out\n");
 	aes_encrypt_out(encrypted_version_key, version_key, act_key);
 
 	free(act);
@@ -176,22 +208,18 @@ int get_rif_state(PspRif* rif, const char* expected_content_id){
 	int invalid_state = offical_rif ? OFFICAL_INVALID : NOPSPEMUDRM_INVALID;
 
 	// get the current account
-	uint64_t account_id = get_account_id();
+	uint64_t current_account_id = get_account_id();
 	
 	// get current secure tick
-	SceRtcTick rtc_tick;
-	memset(&rtc_tick, 0x00, sizeof(SceRtcTick));
-	sceCompatGetCurrentSecureTick(&rtc_tick);
+	uint64_t secure_tick = get_current_secure_tick();
 	
-	LOG("[NOPSPEMUDRM_USER] == console information ==\n");
-	LOG("[NOPSPEMUDRM_USER] secure tick %llx\n", rtc_tick.tick);
-	LOG("[NOPSPEMUDRM_USER] account id: %llx\n", account_id);
-	LOG("[NOPSPEMUDRM_USER] invalid state: %x\n", invalid_state);
-	LOG("[NOPSPEMUDRM_USER] is activated: %x\n", is_activated);
-	LOG("[NOPSPEMUDRM_USER] offical rif: %x\n", offical_rif);
-	LOG("[NOPSPEMUDRM_USER] expected content id: %s\n", expected_content_id);
+	LOG("[NOPSPEMUDRM_USER] VALIDATING RIF\n");
+	LOG("[NOPSPEMUDRM_USER] == Console Information ==\n");
+	LOG("[NOPSPEMUDRM_USER] secure_tick %llx\n", secure_tick);
+	LOG("[NOPSPEMUDRM_USER] current_account_id: %llx\n", current_account_id);
+	LOG("[NOPSPEMUDRM_USER] is_activated: %x\n", is_activated);
 	
-	LOG("[NOPSPEMUDRM_USER] == rif information ==\n");
+	LOG("[NOPSPEMUDRM_USER] == Rif Information ==\n");
 	LOG("[NOPSPEMUDRM_USER] rif->version %x\n", rif->version);
 	LOG("[NOPSPEMUDRM_USER] rif->version_flag %x\n", rif->version_flag);
 	LOG("[NOPSPEMUDRM_USER] rif->license_type %x\n", rif->license_type);
@@ -201,6 +229,12 @@ int get_rif_state(PspRif* rif, const char* expected_content_id){
 	LOG("[NOPSPEMUDRM_USER] rif->start_time %llx\n", __builtin_bswap64(rif->start_time));
 	LOG("[NOPSPEMUDRM_USER] rif->end_time %llx\n", __builtin_bswap64(rif->end_time));
 	
+	LOG("[NOPSPEMUDRM_USER] == Validation Profile ==\n");
+	LOG("[NOPSPEMUDRM_USER] offical_rif: %x\n", offical_rif);
+	LOG("[NOPSPEMUDRM_USER] invalid_state: %x\n", invalid_state);
+	LOG("[NOPSPEMUDRM_USER] expected_content_id: %s\n", expected_content_id);
+	
+	
 	// check the console is activated
 	if(offical_rif && !is_activated) {
 		LOG("[NOPSPEMUDRM_USER] (offical_rif && !is_activated) check failed.\n");
@@ -208,8 +242,8 @@ int get_rif_state(PspRif* rif, const char* expected_content_id){
 	}
 	
 	// check the rif is for this account
-	if(rif->account_id != account_id) { 
-		LOG("[NOPSPEMUDRM_USER] (rif->account_id != account_id) check failed.\n");
+	if(rif->account_id != current_account_id) { 
+		LOG("[NOPSPEMUDRM_USER] (rif->account_id != current_account_id) check failed.\n");
 		return invalid_state;
 	}
 
@@ -226,14 +260,14 @@ int get_rif_state(PspRif* rif, const char* expected_content_id){
 	}
 	
 	// check rif start time
-	if(rif->start_time != 0 && rtc_tick.tick < __builtin_bswap64(rif->start_time)) {
-		LOG("[NOPSPEMUDRM_USER] (rif->end_time != 0 && rtc_tick.tick > __builtin_bswap64(rif->end_time)) check failed.\n");
+	if(rif->start_time != 0 && secure_tick < __builtin_bswap64(rif->start_time)) {
+		LOG("[NOPSPEMUDRM_USER] (rif->end_time != 0 && secure_tick > __builtin_bswap64(rif->end_time)) check failed.\n");
 		return invalid_state;
 	}
 
 	// check rif end time
-	if(rif->end_time != 0 && rtc_tick.tick > __builtin_bswap64(rif->end_time)) {
-		LOG("[NOPSPEMUDRM_USER] (rif->end_time != 0 && rtc_tick.tick > __builtin_bswap64(rif->end_time)) check failed.\n");
+	if(rif->end_time != 0 && secure_tick > __builtin_bswap64(rif->end_time)) {
+		LOG("[NOPSPEMUDRM_USER] (rif->end_time != 0 && secure_tick > __builtin_bswap64(rif->end_time)) check failed.\n");
 		return invalid_state;
 	}
 
