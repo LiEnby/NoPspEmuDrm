@@ -2,7 +2,7 @@ NoPspEmuDrm_user:
   attributes: 0
   version:
     major: 1
-    minor: 5
+    minor: 6
   main:
     start: module_start
     stop: module_stop
