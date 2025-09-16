@@ -17,7 +17,7 @@ add_subdirectory(user)
 add_custom_target(${PROJECT_NAME}
 	ALL
 	DEPENDS NoPspEmuDrm_user.suprx-self NoPspEmuDrm_kern.skprx-self
-	COMMAND mv kern/NoPspEmuDrm_kern.skprx .
-	COMMAND mv user/NoPspEmuDrm_user.suprx .
+	COMMAND mv ${CMAKE_BINARY_DIR}/kern/NoPspEmuDrm_kern.skprx .
+	COMMAND mv ${CMAKE_BINARY_DIR}/user/NoPspEmuDrm_user.suprx .
 )
 

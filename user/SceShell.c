@@ -15,10 +15,9 @@ static int check_license(shell_launch_param *lparam) {
 					
 			if(lparam->error != 0) {
 				lparam->endDate = 0x7FFFFFFFFFFFFFFFull;
-				lparam->flags = 0x2D0001;			
+				lparam->flags = 0x2D0001;
 				lparam->error = 0;
 			}
-			
 			
 			if(ret != 0)
 				ret = 0;

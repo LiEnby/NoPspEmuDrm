@@ -5,6 +5,6 @@
 
 void init_ec_patch();
 void term_ec_patch();
-int is_ecdsa_all_ff(unsigned char* ecdsaSig);
+int is_ecdsa_all_ff(unsigned char* ecdsa_signature);
 
 #endif

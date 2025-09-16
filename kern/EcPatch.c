@@ -10,9 +10,9 @@ static SceUID npdrm_act_verify_ecdsa_and_rsa_hook;
 static tai_hook_ref_t npdrm_rif_verify_ecdsa_and_rsa_ref;
 static tai_hook_ref_t npdrm_act_verify_ecdsa_and_rsa_ref;
 
-int is_ecdsa_all_ff(unsigned char* ecdsaSig){
+int is_ecdsa_all_ff(unsigned char* ecdsa_signature){
 	for(int i = 0; i < 0x28; i++) {
-		if(ecdsaSig[i] != 0xff) {
+		if(ecdsa_signature[i] != 0xff) {
 			return 0;
 		}
 	}
@@ -22,8 +22,8 @@ int is_ecdsa_all_ff(unsigned char* ecdsaSig){
 static int act_verify_ecdsa_and_rsa_patched(PspAct* pspact) {
 	int res = TAI_CONTINUE(int, npdrm_act_verify_ecdsa_and_rsa_ref, pspact);
 	
-	if(res < 0 && is_ecdsa_all_ff(pspact->ecdsaSig)) {
-		log("[NOPSPEMUDRM_KERN] act_verify_ecdsa_and_rsa returned %x .. faking signature validation success.\n", res);
+	if(res < 0 && is_ecdsa_all_ff(pspact->ecdsa_signature)) {
+		LOG("[NOPSPEMUDRM_KERN] act_verify_ecdsa_and_rsa returned %x .. faking signature validation success.\n", res);
 		return 0;
 	}
 	
@@ -33,8 +33,8 @@ static int act_verify_ecdsa_and_rsa_patched(PspAct* pspact) {
 static int rif_verify_ecdsa_and_rsa_patched(PspRif* psprif, int flag) {
 	int res = TAI_CONTINUE(int, npdrm_rif_verify_ecdsa_and_rsa_ref, psprif, flag);
 	
-	if(res < 0 && is_ecdsa_all_ff(psprif->ecdsaSig)) {
-		log("[NOPSPEMUDRM_KERN] rif_verify_ecdsa_and_rsa returned %x .. faking signature validation success.\n", res);
+	if(res < 0 && is_ecdsa_all_ff(psprif->ecdsa_signature)) {
+		LOG("[NOPSPEMUDRM_KERN] rif_verify_ecdsa_and_rsa returned %x .. faking signature validation success.\n", res);
 		return 0;
 	}
 	
@@ -49,8 +49,8 @@ void init_ec_patch() {
 		npdrm_rif_verify_ecdsa_and_rsa_hook = taiHookFunctionOffsetForKernel(KERNEL_PID, &npdrm_rif_verify_ecdsa_and_rsa_ref, tai_info.modid, 0, 0xA8D8, 1, rif_verify_ecdsa_and_rsa_patched); // rif_verify_ecdsa_and_rsa
 		npdrm_act_verify_ecdsa_and_rsa_hook = taiHookFunctionOffsetForKernel(KERNEL_PID, &npdrm_act_verify_ecdsa_and_rsa_ref, tai_info.modid, 0, 0xA840, 1, act_verify_ecdsa_and_rsa_patched);  // act_verify_ecdsa_and_rsa
 		
-		log("[NOPSPEMUDRM_KERN] npdrm_rif_verify_ecdsa_and_rsa_hook: %x npdrm_rif_verify_ecdsa_and_rsa_ref: %x\n", npdrm_rif_verify_ecdsa_and_rsa_hook, npdrm_rif_verify_ecdsa_and_rsa_ref);
-		log("[NOPSPEMUDRM_KERN] npdrm_act_verify_ecdsa_and_rsa_hook: %x npdrm_act_verify_ecdsa_and_rsa_ref: %x\n", npdrm_act_verify_ecdsa_and_rsa_hook, npdrm_act_verify_ecdsa_and_rsa_ref);	
+		LOG("[NOPSPEMUDRM_KERN] npdrm_rif_verify_ecdsa_and_rsa_hook: %x npdrm_rif_verify_ecdsa_and_rsa_ref: %x\n", npdrm_rif_verify_ecdsa_and_rsa_hook, npdrm_rif_verify_ecdsa_and_rsa_ref);
+		LOG("[NOPSPEMUDRM_KERN] npdrm_act_verify_ecdsa_and_rsa_hook: %x npdrm_act_verify_ecdsa_and_rsa_ref: %x\n", npdrm_act_verify_ecdsa_and_rsa_hook, npdrm_act_verify_ecdsa_and_rsa_ref);	
 	}
 }
 

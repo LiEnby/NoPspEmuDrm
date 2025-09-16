@@ -18,7 +18,7 @@ typedef struct PbpHdr
 
 } __attribute__((packed)) PbpHdr;
 
-int check_file(char* file, char* contentId, char* key);
-int search_games(char* dir_path, char* contentId, char* key);
+int check_pbp_file(char* file, char* content_id, char* key);
+int search_psp_games_folder(char* dir_path, char* content_id, char* key);
 
 #endif

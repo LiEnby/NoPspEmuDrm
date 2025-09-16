@@ -3,9 +3,9 @@
 #include <stddef.h>
 #define MAX_PATH (1028)
 
-int WriteFile(const char *file, void *buf, int size);
-int ReadFile(const char *file, void *buf, int size);
-int GetFileSize(const char *file);
-void GetExtension(const char* filename, char* ext, size_t ext_len);
+int write_file(const char *file, void *buf, int size);
+int read_file(const char *file, void *buf, int size);
+int get_file_size(const char *file);
+void get_extension(const char* filename, char* ext, size_t ext_len);
 
 #endif

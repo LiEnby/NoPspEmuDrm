@@ -4,7 +4,7 @@
 // define toupper
 int toupper(int ch);
 
-int WriteFile(const char *file, void *buf, int size) {
+int write_file(const char *file, void *buf, int size) {
 	SceUID fd = sceIoOpen(file, SCE_O_WRONLY | SCE_O_CREAT , 0777);
 	if (fd < 0)
 		return fd;
@@ -15,7 +15,7 @@ int WriteFile(const char *file, void *buf, int size) {
 	return written;
 }
 
-int ReadFile(const char *file, void *buf, int size) {
+int read_file(const char *file, void *buf, int size) {
 	SceUID fd = sceIoOpen(file,SCE_O_RDONLY, 0777);
 	if (fd < 0)
 		return fd;
@@ -25,7 +25,7 @@ int ReadFile(const char *file, void *buf, int size) {
 	sceIoClose(fd);
 	return read;
 }
-void GetExtension(const char* filename, char* ext, size_t ext_len) {
+void get_extension(const char* filename, char* ext, size_t ext_len) {
 	memset(ext, 0x00, ext_len);
 	int cpy = 0;
 	
@@ -42,7 +42,7 @@ void GetExtension(const char* filename, char* ext, size_t ext_len) {
 		ext[i] = toupper(ext[i]);
 }
 
-int GetFileSize(const char *file) {
+int get_file_size(const char *file) {
 	SceIoStat stat;
 	
 	int ret = sceIoGetstat(file, &stat);

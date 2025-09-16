@@ -6,7 +6,7 @@
 int sceshell_module_start(tai_module_info_t tai_info);
 int sceshell_module_stop();
 
-typedef struct shell_launch_param{
+typedef struct shell_launch_param {
 	char startFolder[0x80];
 	uint64_t startDate;
 	uint64_t endDate;

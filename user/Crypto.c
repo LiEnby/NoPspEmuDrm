@@ -5,27 +5,27 @@
 #include <stdint.h>
 
 void aes_encrypt_out(char* data_out, const char* data, const char* key) {
-	AES_ctx aesCtx;
-	AES_set_key(&aesCtx, (uint8_t*)key, 128);
-	AES_encrypt(&aesCtx, (uint8_t*)data, (uint8_t*)data_out);
+	AES_ctx aes_ctx;
+	AES_set_key(&aes_ctx, (uint8_t*)key, 128);
+	AES_encrypt(&aes_ctx, (uint8_t*)data, (uint8_t*)data_out);
 }
 
 void aes_decrypt_out(char* data_out, const char* data, const char* key) {
-	AES_ctx aesCtx;
-	AES_set_key(&aesCtx, (uint8_t*)key, 128);
-	AES_decrypt(&aesCtx, (uint8_t*)data, (uint8_t*)data_out);
+	AES_ctx aes_ctx;
+	AES_set_key(&aes_ctx, (uint8_t*)key, 128);
+	AES_decrypt(&aes_ctx, (uint8_t*)data, (uint8_t*)data_out);
 }
 
 void aes_encrypt(char* data, const char* key) {
-	AES_ctx aesCtx;
-	AES_set_key(&aesCtx, (uint8_t*)key, 128);
-	AES_encrypt(&aesCtx, (uint8_t*)data, (uint8_t*)data);
+	AES_ctx aes_ctx;
+	AES_set_key(&aes_ctx, (uint8_t*)key, 128);
+	AES_encrypt(&aes_ctx, (uint8_t*)data, (uint8_t*)data);
 }
 
 void aes_decrypt(char* data, const char* key) {
-	AES_ctx aesCtx;
-	AES_set_key(&aesCtx, (uint8_t*)key, 128);
-	AES_decrypt(&aesCtx, (uint8_t*)data, (uint8_t*)data);
+	AES_ctx aes_ctx;
+	AES_set_key(&aes_ctx, (uint8_t*)key, 128);
+	AES_decrypt(&aes_ctx, (uint8_t*)data, (uint8_t*)data);
 }
 
 int32_t random_int() {

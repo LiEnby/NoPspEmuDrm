@@ -2,9 +2,9 @@
 #define PSP_LOG_H 1
 
 #ifdef LOGGING_ENABLED
-#define log(...) sceClibPrintf(__VA_ARGS__ )
+#define LOG(...) sceClibPrintf(__VA_ARGS__ )
 #else
-#define log(...) /* nothing */
+#define LOG(...) /* nothing */
 #endif
 
 #ifdef LOGGING_ENABLED

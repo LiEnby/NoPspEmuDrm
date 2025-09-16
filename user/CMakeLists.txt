@@ -35,6 +35,10 @@ add_executable(${PROJECT_NAME}
 	Main.c
 )
 
+include_directories(${CMAKE_SOURCE_DIR}/user)
+include_directories(${CMAKE_SOURCE_DIR}/kern)
+
+
 target_link_libraries(${PROJECT_NAME}
 	taihen_stub
 	SceLibKernel_stub

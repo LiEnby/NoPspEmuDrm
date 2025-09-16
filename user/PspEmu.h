@@ -22,9 +22,6 @@
 #define SCE_PSPEMU_CACHE_NONE 0x1
 #define SCE_PSPEMU_CACHE_INVALIDATE 0x2
 
-extern int (* ScePspemuConvertAddress)(uint32_t addr, int mode, uint32_t cache_size);
-extern int (* ScePspemuWritebackCache)(void *addr, int size);
-
 int pspemu_module_start(tai_module_info_t tai_info);
 int pspemu_module_stop();
 
