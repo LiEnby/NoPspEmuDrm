@@ -16,8 +16,53 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Wait you mean its based on adrenaline code?
-// well uh, yes, but its also based on chovy-sign code ;)
+
+/* 
+* specifically; the function
+* get_functions(uintptr_t base_addr);
+*
+* and the signatures:
+* void* (*scePspemuConvertAddress)(uintptr_t addr, int mode, size_t cache_size);
+* int (*scePspemuWritebackCache)(void *addr, int size);
+* come from adrenaline;
+*
+* first is used to locate the other two (their internal to ScePspEmu)
+* second takes pointer in ePSP memory space, and returns pointer to it on VITA memory space
+* third, invalidates cache on the ePSP 
+*
+* Overall this is pretty minor code usage from vitashell-
+* im not sure it even _needs_ the license information given how little is used- 
+* but im including it anyway both to be nice- and "just in case."
+*
+* mostly everything else is custom, building upon research of psp npdrm from chovy-sign :)
+*/
+
+/* NoPspEmuDrm overview;
+*
+* PSP license check is in two parts; one is vita NpDrm.skprx (SceNpDrm) and in shell.self (SceShell);
+* this isn't anything except a really simple check for if a valid license exists;
+* otherwise you'll get the "Please redownload from PS Store" message 
+*
+* most of it is instead checked by the emulated PSP; via the PSP module NpDrm.prx;
+* this is kind of what makes it a bit tricky, as typical tooling, henkaku, taihen, etc are not helpful here.
+*
+* previous work to patch it involve loading a psp-mode module to patch on psp side (see; adrenaline, ark-4, etc.) 
+* or creating a new NPUMDIMG or PS1IMG using same key as a offically owned game (see; chovy-sign)
+*
+* the approach NoPspEmuDrm takes differs from both of these, and from NoNpDrm and NoPsmDrm.
+*
+* PSP has I/O passthrough to vita; where it is handled with a fios2 overlay from ux0:/pspemu to ms0:,
+* we take advantage of this by hooking sceIoOpen on Vita Side, and checking if a RIF Is opened;
+* this is a kind of signal that the PSP is trying to verify a license file.
+* 
+* then we patch the npdrm actdat and rif ECDSA verification,
+* and generate an offical PSP license RIF 
+* 
+* This is then parsed and read by npdrm.prx,
+* the exact same way it would if it were an offical game from PSN.
+* 
+*/
+
 
 #include <vitasdk.h>
 
@@ -46,21 +91,32 @@ static tai_hook_ref_t sceIoOpenRef;
 static tai_hook_ref_t sceIoGetstatRef;
 
 static uintptr_t npdrm_key_addr = 0;
-static char last_opened_drm_file[0x1028];
+static char last_opened_drm_file[MAX_PATH];
 
-void get_functions(uintptr_t addr) {
-	scePspemuConvertAddress = (void*)addr + 0x6364 + 0x1;
-	scePspemuWritebackCache = (void*)addr + 0x6490 + 0x1;
+void get_functions(uintptr_t base_addr) {
+	// locates internal functions from ScePspEmu*
+	
+	// ScePspEmu + 0x6364 -- scePspemuConvertAddress (3.60-3.74)	
+	// ScePspEmu + 0x6490 -- scePspemuWritebackCache (3.60-3.74)
+	//
+	// program base addr (non-constant becuase ASLR) +
+	// function offset (constant accross firmware) +
+	// + 0x00 (ARM)
+	// + 0x01 (THUMB)
+	
+	scePspemuConvertAddress = (void*)base_addr + 0x6364 + 0x01;
+	scePspemuWritebackCache = (void*)base_addr + 0x6490 + 0x01;
 }
 
 void nop_func_as_ret_0_mips(uintptr_t addr){
-	/*
-	* Writes the equivielent MIPS assembly code for "return 0;"
-	* to the specified function address;
-	*/	
-
+	//
+	//Writes the equivielent MIPS assembly code for "return 0;"
+	//to the specified function address in pspemu / compat memory
+	//
+	
 	uint64_t* func_addr = scePspemuConvertAddress(addr, SCE_PSPEMU_CACHE_INVALIDATE, 0x8);
-	*func_addr = 0x3e0000824020000ull; // li $v0 0
+	*func_addr = 0x3e0000824020000ull; // MIPS:
+									   // li $v0 0
 									   // jr $ra
 									   
 	scePspemuWritebackCache(func_addr, 0x8);
@@ -68,6 +124,12 @@ void nop_func_as_ret_0_mips(uintptr_t addr){
 
 
 int check_npdrm_key_addr(int addr) {
+	// checks if the npdrm address is still pointing to the npdrm ecdsa key;
+	// if the ePSP reboots, or switches modes while running (POPS, PSP, etc) 
+	// it may not still be located at the same address.
+
+	// keep in mind that the ePSP effectively reboots itself when a new SELF is loaded.
+	
 	if(addr == 0) {
 		LOG("[NOPSPEMUDRM_USER] npdrm_key_addr is nullptr\n", addr);
 		return 0;
@@ -84,7 +146,22 @@ int check_npdrm_key_addr(int addr) {
 	return 0;
 }
 
-uintptr_t find_npdrm_key(){
+uintptr_t find_npdrm_key() {
+	/*
+	* does effectively a brute-force search on the entire PSP memory space
+	* for the constant ECDSA rif public key, in memory
+	*
+	* Presumably there is likely a way to find the actual start address of npdrm.prx directly.
+	* which could probably be a bit faster, but this brute-force search doesn't take that long anyway;
+	*
+	* as for why not a constant; the location it is loaded at changes depending on:
+	* -- firmware version (npdrm.prx changed in 3.70)
+	* -- POPs mode or PSP mode
+	* -- any other module loaded before it
+	*
+	* So even though the PSP Kernel doesn't have ASLR this is still more reliable.
+	*/
+
 	uintptr_t base_addr = 0x88000000;
 	size_t sz = (32 * 1024 * 1024);
 	
@@ -108,32 +185,27 @@ uintptr_t find_npdrm_key(){
 }
 
 void patch_npdrm_prx(){
-	
 	/*
-	*	npdrm.prx loads in different location on each firmware and even depending on pops or psp mode
-	*	this code will search for the npdrm ECDSA rif key, as it is at a constant location in the prx
-	*	will then calculate the offsets to the verify rif and verify act.dat functions from there
+	* we use the RIF ECDSA key to kind of 'anchor' point to calculate 
+	* address of sceNpDrmVerifyAct and sceNpDrmVerifyRif in npdrm.prx.
 	*
-	*	- i used to use a boolean variable to determine if was patched already
-	*	  however, it turns out some PSP games (e.g POWER STONE COLLETION) will reboot the PSP
-	*	  so instead im only caching the memory search result (which is the "slow" part)
-	*	  and patching the npdrm module every time .. its a bit of a hack but it should work.
+	* The address of these functions differs in PSP mode and POPS mode;
+	* as well as that, it also differs from different PSP firmware images;
 	*/
 	
 	if(!check_npdrm_key_addr(npdrm_key_addr)) {
-		npdrm_key_addr = find_npdrm_key(); // 3.60: 0x880ef7c1
+		npdrm_key_addr = find_npdrm_key(); // 3.60 (PSP): 0x880ef7c1
 	}
 																
-	uintptr_t sceNpDrmVerifyRifAddr = (npdrm_key_addr - 0x33D8); // 3.60: 0x880ec3e8 => sceNpDrmVerifyRif
-	uintptr_t sceNpDrmVerifyActAddr = (npdrm_key_addr - 0x3340); // 3.60: 0x880ec480 => sceNpDrmVerifyAct
+	uintptr_t sceNpDrmVerifyRifAddr = (npdrm_key_addr - 0x33D8); // 3.60 (PSP): 0x880ec3e8 => sceNpDrmVerifyRif
+	uintptr_t sceNpDrmVerifyActAddr = (npdrm_key_addr - 0x3340); // 3.60 (PSP): 0x880ec480 => sceNpDrmVerifyAct
 
-	LOG("[NOPSPEMUDRM_USER] == Patching NpDrm in PspEmu ==\n");
-	
+	LOG("[NOPSPEMUDRM_USER] == Patching NpDrm.prx in PspEmu ==\n");
 	LOG("[NOPSPEMUDRM_USER] npdrm_key_addr: %p\n", npdrm_key_addr);
 	LOG("[NOPSPEMUDRM_USER] sceNpDrmVerifyRif: %p\n", sceNpDrmVerifyRifAddr);
 	LOG("[NOPSPEMUDRM_USER] sceNpDrmVerifyAct: %p\n", sceNpDrmVerifyActAddr);
-
 	
+	// patch out signature verification on license & activation.
 	nop_func_as_ret_0_mips(sceNpDrmVerifyRifAddr); 
 	nop_func_as_ret_0_mips(sceNpDrmVerifyActAddr); 
 }
@@ -175,11 +247,13 @@ void handle_rif(const char** file){
 }
 
 // popscore stats license, its very rude
+// without this you cannot start POPS games (PS1 emulator)
+// if the license file is COMPLETELY missing from /PSP/LICENSE ..
 static SceUID sceIoGetstatPatched(const char* file, SceIoStat* stat) {
 	SceUID ret = TAI_CONTINUE(SceUID, sceIoGetstatRef, file, stat);	
 	if( file != NULL && (ret < 0 && IS_RIF_PATH(file)) ) {
 		LOG("[NOPSPEMUDRM_USER] rif_getstat: %s %x\n", file, stat);
-		// fake it existing
+		// fake the file existing
 		memset(stat, 0x00, sizeof(SceIoStat));
 		stat->st_mode = 0x2186;
 		stat->st_attr = 0x0;
@@ -195,13 +269,21 @@ static SceUID sceIoOpenPatched(const char *file, int flags, SceMode mode) {
 
 	if(file != NULL) {
 		get_extension(file, extension, sizeof(extension));
-		if( (strcasecmp(extension, ".EDAT") == 0 ) || 
+		if((strcasecmp(extension, ".EDAT") == 0 ) || 
 			 strcasecmp(extension, ".PBP") == 0 ) {
 			LOG("[NOPSPEMUDRM_USER] edat_or_pbp_open: %s %x %x\n", file, flags, mode);
-			strncpy(last_opened_drm_file, file, sizeof(last_opened_drm_file));
+			
+			// an optimization to avoid having to rescan the entire ms0:/PSP/GAME folder every time a unknown rif is opened.
+			// is that _usually_ the file with the Content ID we want. is also the last DRM'd file opened.
+			//
+			// (i.e usually EBOOT.PBP is opened before the license for the EBOOT.PBP, 
+			// so we can reasonably guess the last EBOOT.PBP opened probably matches the expected content id)
+			strncpy(last_opened_drm_file, file, sizeof(last_opened_drm_file)-1);
 		}
 		if(file != NULL && IS_RIF_PATH(file)){
 			LOG("[NOPSPEMUDRM_USER] rif_open: %s %x %x\n", file, flags, mode);
+			
+			// opened file is a rif, generate the npdrm rif for this content id..
 			handle_rif(&file);
 		}	
 	}

@@ -142,8 +142,8 @@ int sceNpDrmCalcPgdKey(NpPgd* pgd, char* version_key);
 int sceNpDrmCalcNpUmdKey(NpUmdHdr* hdr, char* version_key);
 int sceNpDrmCalcEdatKey(NpPspEdat* edat, NpPgd* pgd, char* version_key);
 
-void sceNpDrmGenerateRif(char* content_id, const char* path, char* last_opened_drm_file);
+void sceNpDrmGenerateRif(const char* content_id, const char* path, char* last_opened_drm_file);
 int sceNpDrmTransformVersionKey(char* version_key, int src_key_type, int dst_key_type);
-PspRifState sceNpDrmCheckRifState(char* content_id, const char* path);
+PspRifState sceNpDrmCheckRifState(const char* content_id, const char* path);
 
 #endif

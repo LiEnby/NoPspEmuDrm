@@ -7,12 +7,13 @@
 static SceUID check_license_hook = -1;
 static tai_hook_ref_t check_license_hook_ref;
 
+// patch to SceShell allow PSP games to attempt to start games 
+// even if no license file is present at all; (not just with a fake license)
 static int check_license(shell_launch_param *lparam) {
 	int ret = TAI_CONTINUE(int, check_license_hook_ref, lparam);
 	
 	if(lparam != NULL){
 		if(sceClibStrncmp(lparam->startFolder, "ux0:pspemu/PSP/GAME/", 20) == 0){
-					
 			if(lparam->error != 0) {
 				lparam->endDate = 0x7FFFFFFFFFFFFFFFull;
 				lparam->flags = 0x2D0001;

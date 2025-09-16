@@ -14,9 +14,8 @@
 
 #include <vitasdk.h>
 
-/*
-* workaround console id spoofers; read IDPS from idstorage
-*/
+// workaround for console id spoofers- read CID from idstorage
+// see: https://github.com/LiEnby/NoPspEmuDrm/issues/12
 int get_real_console_id(char* console_id_out) {
 	
 	char idstorage_leaf[0x200];
@@ -147,12 +146,13 @@ void get_act_key(char* key_out, char* encrypted_act_key, int count){
 }
 
 int get_activation_data(PspAct* act) {
-	// read act.dat
 	
-	if(is_npdrm_activated()) {
+	if(is_npdrm_activated()) { // read act.dat
+		LOG("Reading tm0:/npdrm/act.dat ...\n");
 		read_file("tm0:/npdrm/act.dat", act, sizeof(PspAct));
 	}
-	else {
+	else { // use fake activation 
+		LOG("Reading fake activation buffer ...\n");
 		memcpy(act, fake_activation_buffer, sizeof(PspAct));
 	}
 	
@@ -176,10 +176,11 @@ void generate_encrypted_key_id(char* encrypted_key_id, int key_id){
 
 void generate_encrypted_version_key(char* encrypted_version_key, const char* version_key, int key_id) {
 	
-	// PspAct struct is too big to allocate on the stack here; 
+	// PspAct struct is too big to allocate on the stack; 
 	// trying to results in StackOverflow. in ScePspEmu.
+	
 	// it seems that pspemu doesn't have much stack allocated, 
-	// or possibly does not have much free space on it.
+	// or possibly does not have much free space on it when this is called.
 	
 	PspAct* act = malloc(sizeof(PspAct));
 	memset(act, 0x00, sizeof(PspAct));
@@ -365,7 +366,13 @@ int sceNpDrmCalcNpUmdKey(NpUmdHdr* hdr, char* version_key) {
 	return 1;
 }
 
-PspRifState sceNpDrmCheckRifState(char* content_id, const char* path) {
+PspRifState sceNpDrmCheckRifState(const char* content_id, const char* path) {
+	// PspRif struct is too big to allocate on the stack; 
+	// trying to results in StackOverflow. in ScePspEmu.
+	
+	// it seems that pspemu doesn't have much stack allocated, 
+	// or possibly does not have much free space on it when this is called.
+	
 	PspRif* rif = malloc(sizeof(PspRif));
 	memset(rif, 0x00, sizeof(PspRif));
 	
@@ -381,7 +388,13 @@ PspRifState sceNpDrmCheckRifState(char* content_id, const char* path) {
 }
 
 
-void sceNpDrmGenerateRif(char* content_id, const char* path, char* last_opened_drm_file) {
+void sceNpDrmGenerateRif(const char* content_id, const char* path, char* last_opened_drm_file) {
+	// PspRif struct is too big to allocate on the stack; 
+	// trying to results in StackOverflow. in ScePspEmu.
+	
+	// it seems that pspemu doesn't have much stack allocated, 
+	// or possibly does not have much free space on it when this is called.
+	
 	PspRif* rif = malloc(sizeof(PspRif));
 	memset(rif, 0x00, sizeof(PspRif));
 	
