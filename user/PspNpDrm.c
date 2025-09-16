@@ -121,40 +121,38 @@ int get_activation_data(PspAct* act) {
 	return 0;
 }
 
-void generate_encrypted_key_id(char* encKey1_out, int key_id){
-	char encrypted_key_id[0x10];
+void generate_encrypted_key_id(char* encrypted_key_id, int key_id){
+	// zero-out the keyid buffer.
+	memset(encrypted_key_id, 0x00, AES_BUFFER_SIZE);
+	
+	// generate random bytes into buffer
+	sceUtilsBufferCopyWithRange(encrypted_key_id, AES_BUFFER_SIZE, NULL, 0, KIRK_CMD_PRNG);
+
+	// set the keyid inside the buffer.
+	*(uint32_t*)(encrypted_key_id+0xC) = __builtin_bswap32(key_id);
 	LOG("[NOPSPEMUDRM_USER] Using activation key id: %x\n", key_id);
 
-	sceUtilsBufferCopyWithRange(encrypted_key_id, 0x10, NULL, 0, KIRK_CMD_PRNG);
-	*(uint32_t*)(encrypted_key_id+0xC) = __builtin_bswap32(key_id);
-	
+	// encrypt using the psp rif aes key,
 	aes_encrypt(encrypted_key_id, PSP_RIF_AES);
-
-	memcpy(encKey1_out, encrypted_key_id, sizeof(encrypted_key_id));
-
 }
 
-void generate_encrypted_version_key(char* encrypted_verison_key, const char* version_key, const int key_id){
+void generate_encrypted_version_key(char* encrypted_version_key, const char* version_key, int key_id){
+	PspAct act;
+	memset(&act, 0x00, sizeof(PspAct));
+	
+	// read activation data
+	get_activation_data(&act);
 
-	PspAct* act = malloc(sizeof(PspAct));
-	memset(act, 0x00, sizeof(PspAct));
-	
-	get_activation_data(act);
-	
+	// get encryption key from the activation table
 	char act_key[0x10];
-	get_act_key(act_key, act->primary_key_table[key_id], 1);
+	get_act_key(act_key, act.primary_key_table[key_id], 1);
 
-	char encrypted_version_key[0x10];
 	aes_encrypt_out(encrypted_version_key, version_key, act_key);
-	
-	memcpy(encrypted_verison_key, encrypted_version_key, sizeof(encrypted_version_key));
-	
-	free(act);
 
 }
 
 
-int get_rif_state(PspRif* rif, char* expected_content_id){
+int get_rif_state(PspRif* rif, const char* expected_content_id){
 	// is this an offical rif?
 	int offical_rif = is_offical_rif(rif);
 	

@@ -9,7 +9,7 @@
 
 #include <vitasdk.h>
 
-int read_edat_key(char* file, char* content_id, char* key){
+int read_edat_key(const char* file, const char* content_id, char* key){
 	NpPspEdat psp_edata;
 	int ret = 0;
 
@@ -46,7 +46,7 @@ int read_edat_key(char* file, char* content_id, char* key){
 	return ret;
 }
 
-int read_pbp_key(char* file, char* content_id, char* key){	
+int read_pbp_key(const char* file, const char* content_id, char* key){	
 	PbpHdr pbp_header;
 	int ret = 0;
 	
@@ -141,7 +141,7 @@ int read_pbp_key(char* file, char* content_id, char* key){
 	return ret;
 }
 
-int check_pbp_file(char* file, char* content_id, char* key) {
+int check_pbp_file(const char* file, const char* content_id, char* key) {
 	char extension[0x10];
 	get_extension(file, extension, sizeof(extension));
 
@@ -156,7 +156,7 @@ int check_pbp_file(char* file, char* content_id, char* key) {
 	
 }
 
-int search_psp_games_folder(char* dir_path, char* content_id, char* key){
+int search_psp_games_folder(const char* dir_path, const char* content_id, char* key){
 	SceUID dfd = sceIoDopen(dir_path);	
 	char* sub_entry = malloc(MAX_PATH);
 	memset(sub_entry, 0x00, MAX_PATH);
