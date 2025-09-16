@@ -156,8 +156,13 @@ int check_pbp_file(const char* file, const char* content_id, char* key) {
 	
 }
 
-int search_psp_games_folder(const char* dir_path, const char* content_id, char* key){
+int search_psp_games_folder(const char* dir_path, const char* content_id, char* key) {
 	SceUID dfd = sceIoDopen(dir_path);	
+	
+	// As mentioned in another comment on PspNpDrm.c; 
+	// the stack of PspEmu seems to be very small
+	// as such, we are allocating SceIoDirent on the heap here,
+	// because otherwise ScePspEmu can StackOverflow with too many games.
 	char* sub_entry = malloc(MAX_PATH);
 	memset(sub_entry, 0x00, MAX_PATH);
 	
@@ -189,9 +194,12 @@ int search_psp_games_folder(const char* dir_path, const char* content_id, char* 
 	} while(dir_read_ret > 0);
 	
 	
-	free(dir);
+	if(dir != NULL)
+		free(dir);
+	
 	sceIoDclose(dfd);
 	
-	free(sub_entry);
+	if(sub_entry != NULL)
+		free(sub_entry);
 	return ret;
 }

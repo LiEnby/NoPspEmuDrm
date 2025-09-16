@@ -123,10 +123,10 @@ int get_activation_data(PspAct* act) {
 
 void generate_encrypted_key_id(char* encrypted_key_id, int key_id){
 	// zero-out the keyid buffer.
-	memset(encrypted_key_id, 0x00, AES_BUFFER_SIZE);
+	memset(encrypted_key_id, 0x00, 0x10);
 	
 	// generate random bytes into buffer
-	sceUtilsBufferCopyWithRange(encrypted_key_id, AES_BUFFER_SIZE, NULL, 0, KIRK_CMD_PRNG);
+	sceUtilsBufferCopyWithRange(encrypted_key_id, 0x10, NULL, 0, KIRK_CMD_PRNG);
 
 	// set the keyid inside the buffer.
 	*(uint32_t*)(encrypted_key_id+0xC) = __builtin_bswap32(key_id);
@@ -136,19 +136,32 @@ void generate_encrypted_key_id(char* encrypted_key_id, int key_id){
 	aes_encrypt(encrypted_key_id, PSP_RIF_AES);
 }
 
-void generate_encrypted_version_key(char* encrypted_version_key, const char* version_key, int key_id){
-	PspAct act;
-	memset(&act, 0x00, sizeof(PspAct));
+void generate_encrypted_version_key(char* encrypted_version_key, const char* version_key, int key_id) {
+	
+	// PspAct struct is too big to allocate on the stack here; 
+	// trying to results in StackOverflow. in ScePspEmu.
+	// it seems that pspemu doesn't have much stack allocated, 
+	// or possibly does not have much free space on it.
+	
+	PspAct* act = malloc(sizeof(PspAct));
+	memset(act, 0x00, sizeof(PspAct));
+
+	LOG("[NOPSPEMUDRM_USER] generate_encrypted_version_key\n");
 	
 	// read activation data
-	get_activation_data(&act);
+	LOG("[NOPSPEMUDRM_USER] get_activation_data\n");
+	get_activation_data(act);
 
 	// get encryption key from the activation table
+	LOG("[NOPSPEMUDRM_USER] get_act_key\n");
+	
 	char act_key[0x10];
-	get_act_key(act_key, act.primary_key_table[key_id], 1);
+	get_act_key(act_key, act->primary_key_table[key_id], 1);
 
+	LOG("[NOPSPEMUDRM_USER] aes_encrypt_out\n");
 	aes_encrypt_out(encrypted_version_key, version_key, act_key);
 
+	free(act);
 }
 
 
@@ -352,8 +365,8 @@ void sceNpDrmGenerateRif(char* content_id, const char* path, char* last_opened_d
 	logBuf(version_key, sizeof(version_key));
 	
 	// determine a random key from act.dat to use.
-	int key_id = (int)(random_uint() % 0x80);
-	LOG("[NOPSPEMUDRM_USER] key_id: %x\n", key_id);
+	int act_key_id = (int)(random_uint() % 0x80);
+	LOG("[NOPSPEMUDRM_USER] act_key_id: %x\n", act_key_id);
 	
 	/*
 	*	GENERATE THE RIF
@@ -389,10 +402,10 @@ void sceNpDrmGenerateRif(char* content_id, const char* path, char* last_opened_d
 	rif->end_time = 0;
 
 	// set encrypted key id
-	generate_encrypted_key_id(rif->encrypted_key_id, key_id);
+	generate_encrypted_key_id(rif->encrypted_key_id, act_key_id);
 
 	// set encrypted verison key
-	generate_encrypted_version_key(rif->encrypted_version_key, version_key, key_id);
+	generate_encrypted_version_key(rif->encrypted_version_key, version_key, act_key_id);
 	
 	// set signature to all 0xFF
 	memset(rif->ecdsa_signature, 0xFF, 0x28);
